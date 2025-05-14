@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: planchis-online
+    runtime: static
+    buildCommand: echo "Static site, no build needed"
+    staticPublishPath: .
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-cache
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: RENDER_EXTERNAL_URL
+        value: https://planchis-online.onrender.com
