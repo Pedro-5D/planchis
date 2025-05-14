@@ -1,0 +1,3809 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juego Planchis</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+        }
+        
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(15, 1fr);
+            grid-template-rows: repeat(15, 1fr);
+            background-color: #fff;
+            border: 2px solid #000;
+            aspect-ratio: 1;
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            position: relative;
+        }
+        
+        .cell {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 12px;
+        }
+        
+        .cell:not(.no-border) {
+            border: 1px solid #000;
+        }
+        
+        /* Colores exactos de los cuadrantes */
+        .zone-pink { background-color: #ff1493; }
+        .zone-blue { background-color: #1aa3ff; }
+        .zone-yellow { background-color: #ffde00; }
+        .zone-green { background-color: #00b050; }
+        
+        /* Símbolos grandes en los cuadrantes */
+        .house-symbol {
+            width: 80%;
+            height: 80%;
+            border: 3px solid black;
+            border-radius: 50%;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1;
+        }
+        
+        /* Símbolo del Sol - círculos concéntricos con punto central */
+        .sun-symbol {
+            position: relative;
+        }
+        
+        .sun-symbol::before {
+            content: "";
+            position: absolute;
+            width: 60%;
+            height: 60%;
+            border: 6px solid black;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        
+        .sun-symbol::after {
+            content: "";
+            position: absolute;
+            width: 15%;
+            height: 15%;
+            background-color: black;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        
+        /* Símbolo de la Luna - luna creciente */
+        .moon-symbol {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .moon-symbol::before {
+            content: "";
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: transparent;
+            border: 5px solid black;
+            box-sizing: border-box;
+        }
+        
+        .moon-symbol::after {
+            content: "";
+            position: absolute;
+            width: 75%;
+            height: 75%;
+            background-color: inherit;
+            border-radius: 50%;
+            top: 12.5%;
+            right: -30%;
+            box-shadow: 0 0 0 5px black;
+        }
+        
+        /* Casa completa con overlay */
+        .house-overlay {
+            position: absolute;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2;
+        }
+        
+        /* Estilo para los círculos con símbolos */
+        .symbol {
+            position: relative;
+            border-radius: 50%;
+            box-shadow: 0 0 3px rgba(0,0,0,0.5);
+            font-weight: bold;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 18px;
+            z-index: 2;
+        }
+        
+        /* Colores específicos para los círculos */
+        .circle-green { background-color: #00b050; color: white; }
+        .circle-blue { background-color: #1aa3ff; color: white; }
+        .circle-pink, .circle-red { background-color: #ff1493; color: white; }
+        .circle-yellow { background-color: #ffde00; color: black; }
+        .circle-white { background-color: white; color: black; border: 1px solid #000; }
+        .circle-cyan { background-color: #00ffff; color: black; }
+        .circle-darkblue { background-color: #000088; color: white; }
+        
+        /* Saturno en fondo azul oscuro */
+        .saturn-cell {
+            background-color: #000088;
+        }
+
+        /* Fichas de los jugadores */
+        .piece {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 2px solid #333;
+            z-index: 10;
+        }
+        
+        /* Colores de jugadores que coinciden con los cuadrantes */
+        .player1 { background-color: #00b050; } /* Verde */
+        .player2 { background-color: #1aa3ff; } /* Azul */
+        .player3 { background-color: #ff1493; } /* Rosa */
+        .player4 { background-color: #ffde00; } /* Amarillo */
+        
+        /* Estilos para el dado y controles del juego */
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .dice-container {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .dice {
+            width: 80px;
+            height: 80px;
+            background-color: #f5f5f5;
+            border: 2px solid #333;
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .dice-result {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 24px;
+        }
+        
+        .element-info {
+            margin-left: 10px;
+            font-weight: bold;
+        }
+        
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            flex-wrap: wrap;
+        }
+        
+        .player-info {
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        
+        .player-info.active {
+            box-shadow: 0 0 8px 2px rgba(255, 215, 0, 0.6);
+        }
+        
+        .houses {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 5px;
+        }
+        
+        .house-piece {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 2px solid #333;
+        }
+        
+        h1, h2, h3 {
+            margin: 5px 0;
+        }
+        
+        .message-log {
+            height: 150px;
+            overflow-y: auto;
+            padding: 10px;
+            background-color: white;
+            border: 1px solid #ddd;
+            margin-top: 20px;
+            width: 100%;
+            max-width: 800px;
+            margin: 20px auto 0;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        /* Resaltado para movimientos posibles */
+        .highlight-move {
+            box-shadow: 0 0 10px 3px gold;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 10px 3px gold; }
+            50% { box-shadow: 0 0 15px 5px gold; }
+            100% { box-shadow: 0 0 10px 3px gold; }
+        }
+        
+        /* Destacar las líneas de juego */
+        .line-highlight {
+            position: relative;
+        }
+        
+        .line-highlight::after {
+            content: "";
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            box-sizing: border-box;
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        /* Destacar la ficha seleccionada */
+        .selected-piece {
+            box-shadow: 0 0 10px 3px gold, 0 0 20px 5px red;
+            z-index: 20;
+            animation: selectedPulse 1.5s infinite;
+        }
+
+        @keyframes selectedPulse {
+            0% { box-shadow: 0 0 10px 3px gold, 0 0 20px 5px red; }
+            50% { box-shadow: 0 0 15px 5px gold, 0 0 25px 7px red; }
+            100% { box-shadow: 0 0 10px 3px gold, 0 0 20px 5px red; }
+        }
+        
+        /* Estilo para el diálogo de configuración */
+        .config-dialog {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        
+        .config-container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .config-title {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .config-option {
+            margin-bottom: 20px;
+        }
+        
+        .config-option h3 {
+            margin-bottom: 10px;
+        }
+        
+        .player-config {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .player-toggle {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+        }
+        
+        .player-toggle label {
+            margin-left: 8px;
+        }
+        
+        .start-button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 18px;
+            margin-top: 20px;
+            width: 100%;
+        }
+        
+        .start-button:hover {
+            background-color: #45a049;
+        }
+        
+        .player-selector {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .player-card {
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: calc(50% - 10px);
+            box-sizing: border-box;
+        }
+        
+        .player-card.selected {
+            border-color: #4CAF50;
+            background-color: rgba(76, 175, 80, 0.1);
+        }
+        
+        .player-card.player1 { border-color: #00b050; }
+        .player-card.player2 { border-color: #1aa3ff; }
+        .player-card.player3 { border-color: #ff1493; }
+        .player-card.player4 { border-color: #ffde00; }
+        
+        .player-card.player1.selected { background-color: rgba(0, 176, 80, 0.2); }
+        .player-card.player2.selected { background-color: rgba(26, 163, 255, 0.2); }
+        .player-card.player3.selected { background-color: rgba(255, 20, 147, 0.2); }
+        .player-card.player4.selected { background-color: rgba(255, 222, 0, 0.2); }
+        
+        .game-mode {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .mode-selector {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 10px;
+        }
+        
+        .mode-button {
+            padding: 10px 20px;
+            background-color: #f5f5f5;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .mode-button.selected {
+            background-color: #4CAF50;
+            color: white;
+            border-color: #368a39;
+        }
+        
+        /* Hacer la interfaz del juego responsiva */
+        @media (max-width: 768px) {
+            .game-info {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .player-info {
+                width: 100%;
+                margin-bottom: 10px;
+            }
+            
+            .player-card {
+                width: 100%;
+            }
+            
+            .dice-container {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .element-info {
+                margin: 10px 0;
+                text-align: center;
+            }
+        }
+        /* CSS para el contenedor del SVG */
+        .center-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #2a2a8c; /* Azul oscuro */
+            overflow: hidden;
+        }
+        .selected-house {
+            box-shadow: 0 0 10px 3px gold, 0 0 20px 5px red;
+            animation: selectedPulse 1.5s infinite;
+        }
+    </style>
+</head>
+<body>
+    <h1>Juego Planchis</h1>
+    
+    <!-- Diálogo de configuración (se muestra al inicio) -->
+    <div class="config-dialog" id="config-dialog">
+        <div class="config-container">
+            <h2 class="config-title">Configuración del Juego</h2>
+            
+            <div class="game-mode">
+                <h3>Modo de Juego</h3>
+                <div class="mode-selector">
+                    <div class="mode-button selected" data-players="2" id="mode-2">2 Jugadores</div>
+                    <div class="mode-button" data-players="4" id="mode-4">4 Jugadores</div>
+                </div>
+            </div>
+            
+            <div class="config-option">
+                <h3>Selecciona los Jugadores Humanos</h3>
+                <div class="player-selector" id="player-selector">
+                    <!-- Las opciones de jugadores se generarán dinámicamente -->
+                </div>
+            </div>
+            
+            <button class="start-button" id="start-game">Comenzar Juego</button>
+        </div>
+    </div>
+    
+    <div class="game-container">
+        <div class="game-info" id="game-info">
+            <!-- Información de jugadores generada dinámicamente -->
+        </div>
+        
+        <div class="game-board" id="board">
+            <!-- El tablero se generará dinámicamente -->
+        </div>
+        
+        <div class="controls">
+            <div class="dice-container">
+                <div class="dice">
+                    <div class="dice-result" id="dice-result"></div>
+                </div>
+                <div id="element-info" class="element-info"></div>
+                <button id="roll-dice">Tirar Dado</button>
+                <button id="move-piece" disabled>Mover Ficha</button>
+                <button id="skip-turn" disabled>Pasar Turno</button>
+            </div>
+        </div>
+        
+        <div class="message-log" id="message-log">
+            <div class="log-entry">Configura el juego para comenzar.</div>
+        </div>
+    </div>
+
+    <script>
+        // Agregar al inicio del script en planchis.html
+
+        // Detección de entorno iframe
+        window.inIframe = window !== window.top;
+
+        // Sistema de almacenamiento seguro para cualquier entorno
+        const storage = {
+            getItem: function(key) {
+                try {
+                    return localStorage.getItem(key);
+                } catch (e) {
+                    console.log('localStorage no disponible, usando almacenamiento en memoria');
+                    if (!this.memoryStorage) this.memoryStorage = {};
+                    return this.memoryStorage[key] || null;
+                }
+            },
+            setItem: function(key, value) {
+                try {
+                    localStorage.setItem(key, value);
+                } catch (e) {
+                    console.log('localStorage no disponible, usando almacenamiento en memoria');
+                    if (!this.memoryStorage) this.memoryStorage = {};
+                    this.memoryStorage[key] = value;
+                }
+            }
+        };
+
+function getWebSocketUrl() {
+    const isLocalhost = window.location.hostname === 'localhost' || 
+                      window.location.hostname === '127.0.0.1';
+    
+    if (isLocalhost) {
+        return 'ws://localhost:8765';
+    } else {
+        // Modificar para usar una ruta específica en producción
+        return `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`;
+        // Alternativamente, especificar el puerto
+        // return `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}:10000`;
+    }
+}
+  
+  // Mantener las propiedades del prototype original
+  window.WebSocket.prototype = originalWebSocket.prototype;
+  window.WebSocket.CONNECTING = originalWebSocket.CONNECTING;
+  window.WebSocket.OPEN = originalWebSocket.OPEN;
+  window.WebSocket.CLOSING = originalWebSocket.CLOSING;
+  window.WebSocket.CLOSED = originalWebSocket.CLOSED;
+
+        function getWebSocketUrl() {
+            // Detectar si estamos en localhost o en producción
+            const isLocalhost = window.location.hostname === 'localhost' || 
+                              window.location.hostname === '127.0.0.1';
+            
+            if (isLocalhost) {
+                // En desarrollo local, usar el puerto 8765
+                return 'ws://localhost:8765';
+            } else {
+                // En producción (Render), usar wss con el hostname completo
+                const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+                
+                // Usar el nombre de host completo sin path adicional
+                const hostname = window.location.host;
+                return `${protocol}://${hostname}`;
+            }
+        }
+
+        function connectWithRetry(maxRetries = 5, retryInterval = 3000) {
+            let retryCount = 0;
+            
+            function attemptConnection() {
+                console.log(`Intento de conexión ${retryCount + 1}/${maxRetries}`);
+                
+                const WS_URL = getWebSocketUrl();
+                console.log('Conectando a WebSocket:', WS_URL);
+                
+                // Actualizar indicador visual
+                const serverIndicator = document.getElementById('server-indicator');
+                const serverStatusText = document.getElementById('server-status-text');
+                
+                if (serverIndicator && serverStatusText) {
+                    serverIndicator.className = 'status-indicator status-checking';
+                    serverStatusText.textContent = 'Conectando al servidor...';
+                }
+                
+                // Cerrar websocket existente si hay uno
+                if (websocket && websocket.readyState !== WebSocket.CLOSED) {
+                    websocket.close();
+                }
+                
+                // Crear nueva conexión
+                try {
+                    websocket = new WebSocket(WS_URL);
+                    
+                    websocket.onopen = () => {
+                        console.log('Conexión WebSocket establecida');
+                        if (serverIndicator && serverStatusText) {
+                            serverIndicator.className = 'status-indicator status-online';
+                            serverStatusText.textContent = 'Servidor online - Listo para jugar';
+                        }
+                        
+                        // Habilitar botones si existen
+                        enableButtons();
+                        
+                        // Iniciar ping periódico
+                        startPingInterval();
+                        
+                        // Reiniciar contador de intentos
+                        retryCount = 0;
+                        
+                        // Procesar acciones pendientes tras reconexión exitosa
+                        if (typeof processReconnection === 'function') {
+                            processReconnection();
+                        }
+                    };
+                    
+                    websocket.onclose = (event) => {
+                        console.log('Conexión WebSocket cerrada', event);
+                        
+                        if (serverIndicator && serverStatusText) {
+                            serverIndicator.className = 'status-indicator status-offline';
+                            serverStatusText.textContent = 'Sin conexión - Modo local activo';
+                        }
+                        
+                        // Detener ping
+                        stopPingInterval();
+                        
+                        // Deshabilitar botones que requieren servidor
+                        disableOnlineButtons();
+                        
+                        // Reintentar si no hemos alcanzado el máximo
+                        if (retryCount < maxRetries) {
+                            retryCount++;
+                            console.log(`Reintentando conexión en ${retryInterval/1000} segundos...`);
+                            setTimeout(attemptConnection, retryInterval);
+                        } else {
+                            console.log('Máximo de reintentos alcanzado, cambiando a modo local');
+                            if (serverStatusText) {
+                                serverStatusText.textContent = 'Sin conexión - Modo local permanente';
+                            }
+                        }
+                    };
+                    
+                    websocket.onerror = (error) => {
+                        console.error('Error en WebSocket:', error);
+                    };
+                    
+                    websocket.onmessage = handleServerMessage;
+                    
+                } catch (error) {
+                    console.error('Error al crear WebSocket:', error);
+                    
+                    // Reintentar
+                    if (retryCount < maxRetries) {
+                        retryCount++;
+                        setTimeout(attemptConnection, retryInterval);
+                    }
+                }
+            }
+            
+            // Funciones auxiliares para habilitar/deshabilitar botones
+            function enableButtons() {
+                // En index.html
+                const createGameBtn = document.getElementById('create-game-btn');
+                const showGamesBtn = document.getElementById('show-games-btn');
+                
+                if (createGameBtn) createGameBtn.disabled = false;
+                if (showGamesBtn) showGamesBtn.disabled = false;
+                
+                // En planchis.html - botones específicos del juego
+                const rollDiceBtn = document.getElementById('roll-dice');
+                if (rollDiceBtn) rollDiceBtn.disabled = false;
+            }
+            
+            function disableOnlineButtons() {
+                // Deshabilitar solo botones que requieren servidor
+                // Esto mantendrá habilitados los botones de juego local
+                
+                // Actualizar mensaje de No hay juegos si está visible
+                const noGamesMessage = document.getElementById('no-games-message');
+                const gamesTableBody = document.getElementById('games-table-body');
+                
+                if (noGamesMessage && gamesTableBody) {
+                    gamesTableBody.innerHTML = '';
+                    noGamesMessage.style.display = 'block';
+                    noGamesMessage.textContent = 'No se pudo conectar al servidor. Puedes jugar en modo local.';
+                }
+            }
+            
+            // Iniciar primer intento
+            attemptConnection();
+        }
+
+        function startPingInterval() {
+            // Limpiar intervalo existente primero
+            stopPingInterval();
+            
+            // Crear nuevo intervalo
+            pingInterval = setInterval(() => {
+                if (websocket && websocket.readyState === WebSocket.OPEN) {
+                    try {
+                        websocket.send(JSON.stringify({ type: "ping", timestamp: Date.now() }));
+                        console.log("Ping enviado para mantener conexión");
+                    } catch (error) {
+                        console.error("Error enviando ping:", error);
+                        // Si hay error al enviar ping, intentar reconectar
+                        stopPingInterval();
+                        setTimeout(() => connectWithRetry(3, 5000), 1000);
+                    }
+                } else {
+                    console.warn("WebSocket no está abierto, no se puede enviar ping");
+                    // Detener envío de pings hasta reconexión
+                    stopPingInterval();
+                }
+            }, 25000); // Cada 25 segundos (algo menos que el tiempo típico de timeout)
+        }
+
+        function stopPingInterval() {
+            if (pingInterval) {
+                clearInterval(pingInterval);
+                pingInterval = null;
+            }
+        }
+
+        // ===== 4. MEJORA DE COMPATIBILIDAD CON IFRAME =====
+        // Agregar este código al inicio de ambos archivos HTML
+
+        function setupIframeCompatibility() {
+            // Detectar si estamos en un iframe
+            window.inIframe = window !== window.top;
+            
+            console.log('Ejecución en iframe:', window.inIframe);
+            
+            // Sistema de almacenamiento que funciona tanto en iframe como fuera
+            window.safeStorage = {
+                getItem: function(key) {
+                    // Intentar usar localStorage si está disponible
+                    try {
+                        return localStorage.getItem(key);
+                    } catch (e) {
+                        console.log('localStorage no disponible, usando almacenamiento en memoria');
+                        // Fallback a almacenamiento en memoria
+                        if (!this.memoryStorage) this.memoryStorage = {};
+                        return this.memoryStorage[key] || null;
+                    }
+                },
+                setItem: function(key, value) {
+                    // Intentar usar localStorage si está disponible
+                    try {
+                        localStorage.setItem(key, value);
+                    } catch (e) {
+                        console.log('localStorage no disponible, usando almacenamiento en memoria');
+                        // Fallback a almacenamiento en memoria
+                        if (!this.memoryStorage) this.memoryStorage = {};
+                        this.memoryStorage[key] = value;
+                    }
+                    
+                    // Si estamos en un iframe, también comunicar a la página principal
+                    if (window.inIframe && window.parent) {
+                        try {
+                            window.parent.postMessage({
+                                type: 'planchisStorage',
+                                key: key,
+                                value: value
+                            }, '*');
+                        } catch (e) {
+                            console.log('No se pudo comunicar con la página principal', e);
+                        }
+                    }
+                }
+            };
+            
+            // Configurar mensajes entre iframe y página principal
+            window.addEventListener('message', function(event) {
+                // Verificar que el mensaje es para nosotros
+                if (event.data && event.data.type && event.data.type.startsWith('planchis')) {
+                    console.log('Mensaje recibido de comunicación iframe:', event.data);
+                    
+                    // Procesar según el tipo de mensaje
+                    if (event.data.type === 'planchisStorage') {
+                        // Sincronizar almacenamiento
+                        try {
+                            const { key, value } = event.data;
+                            window.safeStorage.setItem(key, value);
+                            console.log('Almacenamiento sincronizado desde la página principal:', key);
+                        } catch (e) {
+                            console.error('Error procesando mensaje de almacenamiento:', e);
+                        }
+                    }
+                }
+            });
+        }
+
+        // ===== 5. CONFIGURACIÓN OPTIMIZADA PARA RENDER =====
+        // Añadir código para manejo de dominio en producción
+
+        function getBaseDomain() {
+            // Detectar si estamos en localhost o en algún dominio de producción
+            const hostname = window.location.hostname;
+            
+            if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                return 'http://localhost:8080'; // Ajusta según tu entorno de desarrollo
+            } else {
+                // En producción usar el origen actual
+                return window.location.origin;
+            }
+        }
+
+        // Para uso al construir URLs de recursos
+        function getResourceUrl(path) {
+            const base = getBaseDomain();
+            // Asegurarse de que el path comience con /
+            const safePath = path.startsWith('/') ? path : '/' + path;
+            return `${base}${safePath}`;
+        }
+
+        // ===== 6. DETECCIÓN Y MANEJO DE PROBLEMAS DE RED =====
+        // Añadir detector de estado de red
+
+        function setupNetworkDetection() {
+            // Función para comprobar conectividad a internet
+            function updateOnlineStatus() {
+                const isOnline = navigator.onLine;
+                console.log('Estado de conexión a internet:', isOnline ? 'Conectado' : 'Sin conexión');
+                
+                // Actualizar elementos visuales si existen
+                const serverIndicator = document.getElementById('server-indicator');
+                const serverStatusText = document.getElementById('server-status-text');
+                
+                if (!isOnline && serverIndicator && serverStatusText) {
+                    serverIndicator.className = 'status-indicator status-offline';
+                    serverStatusText.textContent = 'Sin conexión a internet - Modo local';
+                } else if (isOnline && websocket && websocket.readyState !== WebSocket.OPEN) {
+                    // Si recuperamos la conexión pero el websocket está cerrado, intentar reconectar
+                    connectWithRetry(3, 2000);
+                }
+            }
+            
+            // Registrar eventos de cambio de estado de red
+            window.addEventListener('online', updateOnlineStatus);
+            window.addEventListener('offline', updateOnlineStatus);
+            
+            // Comprobar estado inicial
+            updateOnlineStatus();
+        }
+
+        // ===== 7. INICIALIZACIÓN SEGURA DE LA APLICACIÓN =====
+        // Añadir función de inicialización para garantizar carga correcta
+
+        function initPlanchisApp() {
+            console.log('Iniciando aplicación Planchis...');
+            
+            // Configurar compatibilidad con iframe
+            setupIframeCompatibility();
+            
+            // Configurar detección de estado de red
+            setupNetworkDetection();
+            
+            // Iniciar conexión WebSocket con reintentos
+            connectWithRetry(5, 3000);
+            
+            // Cargar nombre de jugador guardado si existe
+            const savedPlayerName = window.safeStorage.getItem('playerName');
+            const playerNameInput = document.getElementById('player-name');
+            const joinPlayerNameInput = document.getElementById('join-player-name');
+            
+            if (savedPlayerName) {
+                if (playerNameInput) playerNameInput.value = savedPlayerName;
+                if (joinPlayerNameInput) joinPlayerNameInput.value = savedPlayerName;
+            }
+            
+            console.log('Inicialización de Planchis completada');
+        }
+
+        // Inicialización de parámetros de URL
+        function getUrlParams() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const params = {
+                gameId: urlParams.get('gameId'),
+                playerId: urlParams.get('playerId'),
+                mode: urlParams.get('mode'),
+                players: urlParams.get('players'),
+                name: urlParams.get('name')
+            };
+            
+            // Limpiar parámetros nulos
+            Object.keys(params).forEach(key => {
+                if (params[key] === null) {
+                    delete params[key];
+                }
+            });
+            
+            return params;
+        }
+
+        // Comunicación con la página principal si estamos en iframe
+        function sendMessageToParent(message) {
+            if (window.inIframe && window.parent) {
+                try {
+                    window.parent.postMessage({
+                        type: 'planchisMessage',
+                        message: message
+                    }, '*');
+                } catch (e) {
+                    console.log('No se pudo enviar mensaje a la página principal', e);
+                }
+            }
+        }
+
+        // Escuchar mensajes desde la página principal
+        window.addEventListener('message', function(event) {
+            // Verificar que el mensaje es para nosotros
+            if (event.data && event.data.type === 'planchisMessage') {
+                console.log('Mensaje recibido de la página principal:', event.data);
+                // Procesar mensaje según sea necesario
+            }
+        });
+
+        // Variables para la conexión
+        let websocket = null;
+        let pingInterval = null;
+
+        // Función para conectar al WebSocket con reintentos
+        function connectToServer() {
+            const WS_URL = getWebSocketUrl();
+            console.log('Conectando a WebSocket:', WS_URL);
+            
+            serverIndicator.className = 'status-indicator status-checking';
+            serverStatusText.textContent = 'Conectando al servidor...';
+            
+            // Cerrar websocket existente si hay uno
+            if (websocket && websocket.readyState !== WebSocket.CLOSED) {
+                websocket.close();
+            }
+            
+            try {
+                websocket = new WebSocket(WS_URL);
+                
+                websocket.onopen = () => {
+                    console.log('Conexión WebSocket establecida');
+                    serverIndicator.className = 'status-indicator status-online';
+                    serverStatusText.textContent = 'Servidor online - Listo para jugar';
+                    
+                    // Habilitar botones
+                    createGameBtn.disabled = false;
+                    showGamesBtn.disabled = false;
+                    
+                    // Iniciar ping periódico para mantener la conexión
+                    startPingInterval();
+                    
+                    // Si estábamos mostrando la lista de juegos, actualizarla
+                    if (gamesList.style.display !== 'none') {
+                        fetchAvailableGames();
+                    }
+                    
+                    // Verificar si tenemos un código de invitación
+                    checkForInviteCode();
+                };
+                
+                websocket.onclose = (event) => {
+                    console.log('Conexión WebSocket cerrada', event);
+                    serverIndicator.className = 'status-indicator status-offline';
+                    serverStatusText.textContent = 'Sin conexión - Jugando en modo local';
+                    
+                    // Detener ping
+                    stopPingInterval();
+                    
+                    // Deshabilitar botones que requieren servidor
+                    // Pero dejamos habilitados los de juego local
+                    if (gamesList.style.display !== 'none') {
+                        gamesTableBody.innerHTML = '';
+                        noGamesMessage.style.display = 'block';
+                        noGamesMessage.textContent = 'No se pudo conectar al servidor. Puedes jugar en modo local.';
+                    }
+                    
+                    // Intentar reconectar después de un tiempo
+                    setTimeout(connectToServer, 5000);
+                };
+                
+                websocket.onerror = (error) => {
+                    console.error('Error en WebSocket:', error);
+                    serverIndicator.className = 'status-indicator status-offline';
+                    serverStatusText.textContent = 'Error de conexión - Modo local habilitado';
+                };
+                
+                websocket.onmessage = (event) => {
+                    handleServerMessage(event.data);
+                };
+                
+            } catch (error) {
+                console.error('Error al crear WebSocket:', error);
+                serverIndicator.className = 'status-indicator status-offline';
+                serverStatusText.textContent = 'Error de conexión - Modo local habilitado';
+                
+                // Intentar reconectar después de un tiempo
+                setTimeout(connectToServer, 5000);
+            }
+        }
+        // Función de utilidad para depuración
+        function debug(message) {
+            console.log(`[DEBUG] ${message}`);
+        }
+
+        // Al cargar la página, asegurarse de que el modo predeterminado esté configurado
+        document.addEventListener('DOMContentLoaded', function() {
+            // Inicializar en modo 2 jugadores por defecto
+            debug("Inicializando juego en modo 2 jugadores por defecto");
+            gameState.gameMode = 2;
+            gameState.humanPlayers = [0]; // Jugador 1 (Verde) es humano por defecto
+            gameState.activePlayerIndices = gameConfigs[2];
+            
+            // Generar selector de jugadores inicial
+            generatePlayerSelector();
+        });
+
+        // Definir los símbolos planetarios 
+        const symbols = [
+            { name: 'Sol', symbol: '☉' },
+            { name: 'Luna', symbol: '☽' },
+            { name: 'Mercurio', symbol: '☿' },
+            { name: 'Venus', symbol: '♀' },
+            { name: 'Marte', symbol: '♂' },
+            { name: 'Júpiter', symbol: '♃' },
+            { name: 'Saturno', symbol: '♄' },
+            { name: 'Sol_Rojo', symbol: '☉' },
+            { name: 'Luna_Amarillo', symbol: '☽' },
+            { name: 'Mercurio_Amarillo', symbol: '☿' },
+            { name: 'Venus_Amarillo', symbol: '♀' },
+            { name: 'Marte_Azul', symbol: '♂' },
+            { name: 'Júpiter_Azul', symbol: '♃' },
+            { name: 'Sol_Verde', symbol: '☉' },
+            { name: 'Luna_Azul', symbol: '☽' },
+            { name: 'Mercurio_Verde', symbol: '☿' },
+            { name: 'Venus_Verde', symbol: '♀' },
+            { name: 'Marte_Rojo', symbol: '♂' },
+            { name: 'Júpiter_Rojo', symbol: '♃' }
+        ];
+        
+        // Definir las combinaciones del dado (12 posibilidades)
+        const dadoCombinations = [
+            { planet: 'Marte_Rojo', element: 'Fuego', color: 'red' },
+            { planet: 'Marte_Azul', element: 'Agua', color: 'blue' },
+            { planet: 'Júpiter_Rojo', element: 'Fuego', color: 'red' },
+            { planet: 'Júpiter_Azul', element: 'Agua', color: 'blue' },
+            { planet: 'Venus_Verde', element: 'Tierra', color: 'green' },
+            { planet: 'Venus_Amarillo', element: 'Aire', color: 'yellow' },
+            { planet: 'Mercurio_Verde', element: 'Tierra', color: 'green' },
+            { planet: 'Mercurio_Amarillo', element: 'Aire', color: 'yellow' },
+            { planet: 'Luna_Azul', element: 'Agua', color: 'blue' },
+            { planet: 'Luna_Amarillo', element: 'Aire', color: 'yellow' },
+            { planet: 'Sol_Rojo', element: 'Fuego', color: 'red' },
+            { planet: 'Sol_Verde', element: 'Tierra', color: 'green' }
+        ];
+        
+        // Definición de las líneas del tablero
+        const boardLines = {
+            "Rojo_Humedo": { type: "vertical", col: 6, minRow: 0, maxRow: 5 },
+            "Rojo_Seco": { type: "horizontal", row: 6, minCol: 0, maxCol: 5 },
+            "Amarillo_Humedo": { type: "horizontal", row: 8, minCol: 0, maxCol: 5 },
+            "Amarillo_Seco": { type: "vertical", col: 6, minRow: 9, maxRow: 14 },
+            "Verde_Humedo": { type: "vertical", col: 8, minRow: 9, maxRow: 14 },
+            "Verde_Seco": { type: "horizontal", row: 8, minCol: 9, maxCol: 14 },
+            "Azul_Humedo": { type: "horizontal", row: 6, minCol: 9, maxCol: 14 },
+            "Azul_Seco": { type: "vertical", col: 8, minRow: 0, maxRow: 5 }
+        };
+
+        // Definición de las adyacencias entre líneas
+        const adjacentLines = {
+            "Rojo_Humedo": ["Rojo_Seco", "Azul_Seco"],
+            "Rojo_Seco": ["Rojo_Humedo", "Amarillo_Humedo"],
+            "Amarillo_Humedo": ["Rojo_Seco", "Amarillo_Seco"],
+            "Amarillo_Seco": ["Amarillo_Humedo", "Verde_Humedo"],
+            "Verde_Humedo": ["Amarillo_Seco", "Verde_Seco"],
+            "Verde_Seco": ["Verde_Humedo", "Azul_Humedo"],
+            "Azul_Humedo": ["Verde_Seco", "Azul_Seco"],
+            "Azul_Seco": ["Azul_Humedo", "Rojo_Humedo"]
+        };
+        
+        // Mapeo de casas de cada jugador a las líneas iniciales
+        const playerStartLines = {
+            0: ["Verde_Humedo", "Verde_Seco"], // Jugador 1 (Verde)
+            1: ["Azul_Humedo", "Azul_Seco"],   // Jugador 2 (Azul)
+            2: ["Rojo_Humedo", "Rojo_Seco"],   // Jugador 3 (Rosa)
+            3: ["Amarillo_Humedo", "Amarillo_Seco"] // Jugador 4 (Amarillo)
+        };
+        
+        // Mapeo de zonas de cruz para ganar
+        const playerCrossZones = {
+            0: { type: "vertical", col: 7, minRow: 8, maxRow: 13, color: "green" }, // Jugador 1 (Verde)
+            1: { type: "horizontal", row: 7, minCol: 8, maxCol: 13, color: "blue" }, // Jugador 2 (Azul)
+            2: { type: "vertical", col: 7, minRow: 1, maxRow: 6, color: "pink" }, // Jugador 3 (Rosa)
+            3: { type: "horizontal", row: 7, minCol: 1, maxCol: 6, color: "yellow" } // Jugador 4 (Amarillo)
+        };
+
+        // Lista de posiciones donde debe aparecer Saturno con fondo azul oscuro
+        const saturnPositions = [
+            { row: 6, col: 6 },
+            { row: 6, col: 8 },
+            { row: 8, col: 6 },
+            { row: 8, col: 8 }
+        ];
+        
+        // Definición de las casas con sus propiedades
+        const houseZones = [
+            { 
+                name: "pink", 
+                startRow: 0, 
+                startCol: 0, 
+                size: 5,
+                symbol: "sun", 
+                color: "#ff1493"
+            },
+            { 
+                name: "blue", 
+                startRow: 0, 
+                startCol: 10, 
+                size: 5,
+                symbol: "moon", 
+                color: "#1aa3ff"
+            },
+            { 
+                name: "yellow", 
+                startRow: 10, 
+                startCol: 0, 
+                size: 5,
+                symbol: "moon", 
+                color: "#ffde00"
+            },
+            { 
+                name: "green", 
+                startRow: 10, 
+                startCol: 10, 
+                size: 5,
+                symbol: "sun", 
+                color: "#00b050"
+            }
+        ];
+        
+        // Información de los jugadores
+        const playerInfo = [
+            { name: 'Jugador 1', color: 'player1', colorName: 'Verde', colorHex: '#00b050', crossZone: 'green' },
+            { name: 'Jugador 2', color: 'player2', colorName: 'Azul', colorHex: '#1aa3ff', crossZone: 'blue' },
+            { name: 'Jugador 3', color: 'player3', colorName: 'Rosa', colorHex: '#ff1493', crossZone: 'pink' },
+            { name: 'Jugador 4', color: 'player4', colorName: 'Amarillo', colorHex: '#ffde00', crossZone: 'yellow' }
+        ];
+        
+        // Configuración para modos de 2 y 4 jugadores
+        const gameConfigs = {
+            2: [0, 2], // Verde y Rosa (opuestos)
+            4: [0, 1, 2, 3] // Todos los jugadores
+        };
+        
+        // Definición de casillas seguras para cada jugador (en modo 4 jugadores)
+        const safeSpots = {
+            0: [  // Jugador 1 (Verde)
+                { planet: 'Sol_Verde', color: 'green' },
+                { planet: 'Mercurio_Verde', color: 'green' },
+                { planet: 'Marte_Azul', color: 'blue' }
+            ],
+            1: [  // Jugador 2 (Azul)
+                { planet: 'Luna_Azul', color: 'blue' },
+                { planet: 'Venus_Verde', color: 'green' },
+                { planet: 'Júpiter_Azul', color: 'blue' }
+            ],
+            2: [  // Jugador 3 (Rosa)
+                { planet: 'Sol_Rojo', color: 'red' },
+                { planet: 'Mercurio_Amarillo', color: 'yellow' },
+                { planet: 'Marte_Rojo', color: 'red' }
+            ],
+            3: [  // Jugador 4 (Amarillo)
+                { planet: 'Luna_Amarillo', color: 'yellow' },
+                { planet: 'Venus_Amarillo', color: 'yellow' },
+                { planet: 'Júpiter_Rojo', color: 'red' }
+            ]
+        };
+
+        // Estado del juego
+        const gameState = {
+            currentPlayer: 0,
+            players: [],
+            pieces: [],
+            board: [],
+            diceResult: null,
+            selectedPiece: null,
+            possibleMoves: [],
+            selectionMode: false,
+            gameOver: false,
+            gameMode: 2, // Por defecto 2 jugadores
+            humanPlayers: [0], // Por defecto, solo el jugador 1 (Verde) es humano
+            activePlayerIndices: [], // Los jugadores activos en la partida
+            houseSelected: false // Indica si se ha seleccionado una casa para sacar ficha
+        };
+        
+        // Inicializar el tablero con todas las casillas y símbolos
+        function initializeBoard() {
+            const board = document.getElementById('board');
+            
+            // Limpiar el tablero
+            board.innerHTML = '';
+            gameState.board = [];
+            
+            // Tablero 15x15
+            const size = 15;
+
+            // Debug inicio
+            debug("Inicializando tablero");
+            
+            // Crear el tablero base
+            for (let row = 0; row < size; row++) {
+                for (let col = 0; col < size; col++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.row = row;
+                    cell.dataset.col = col;
+                    
+                    // Posiciones de Saturno en la cruz
+                    const isSaturnCrossPosition = 
+                        (row === 0 && col === 7) || // Arriba
+                        (row === 7 && col === 0) || // Izquierda
+                        (row === 7 && col === 14) || // Derecha
+                        (row === 14 && col === 7); // Abajo
+                        
+                    // Verificar si esta celda es una posición de Saturno (fondo azul oscuro)
+                    const isSaturnPosition = saturnPositions.some(
+                        pos => pos.row === row && pos.col === col
+                    );
+                    
+                    // Inicialmente todas las celdas tienen borde a menos que se indique lo contrario
+                    let cellHasContent = false;
+                    
+                    // Verificar si la celda está en alguna de las casas
+                    let inHouse = false;
+                    let houseIndex = -1;
+                    
+                    for (let i = 0; i < houseZones.length; i++) {
+                        const house = houseZones[i];
+                        if (row >= house.startRow && row < house.startRow + house.size && 
+                            col >= house.startCol && col < house.startCol + house.size) {
+                            inHouse = true;
+                            houseIndex = i;
+                            break;
+                        }
+                    }
+                    
+                    // Verificar si la celda pertenece a una línea específica
+                    let lineName = null;
+                    for (const [name, line] of Object.entries(boardLines)) {
+                        if ((line.type === "horizontal" && row === line.row && col >= line.minCol && col <= line.maxCol) ||
+                            (line.type === "vertical" && col === line.col && row >= line.minRow && row <= line.maxRow)) {
+                            lineName = name;
+                            cell.classList.add('line-highlight');
+                            cell.dataset.line = name;
+                            break;
+                        }
+                    }
+                    
+                    // Comprobamos si la celda es parte de la cruz
+                    let isCellInCross = false;
+                    let cellCrossColor = null;
+                    
+                    // Cruz horizontal - EXCLUIR posiciones extremas (0,7) y (14,7)
+                    if (row === 7 && col !== 7 && col !== 0 && col !== 14) {
+                        isCellInCross = true;
+                        if (col < 7) {
+                            cell.style.backgroundColor = '#ffde00'; // Amarillo
+                            cellCrossColor = 'yellow';
+                        } else {
+                            cell.style.backgroundColor = '#1aa3ff'; // Azul
+                            cellCrossColor = 'blue';
+                        }
+                        cellHasContent = true;
+                    }
+
+                    // Cruz vertical - EXCLUIR posiciones extremas (7,0) y (7,14)
+                    else if (col === 7 && row !== 7 && row !== 0 && row !== 14) {
+                        isCellInCross = true;
+                        if (row < 7) {
+                            cell.style.backgroundColor = '#ff1493'; // Rosa
+                            cellCrossColor = 'pink';
+                        } else {
+                            cell.style.backgroundColor = '#00b050'; // Verde
+                            cellCrossColor = 'green';
+                        }
+                        cellHasContent = true;
+                    }
+                    
+                    // Centro con SVG personalizado de Corel Draw
+                    else if (row === 7 && col === 7) {
+                        cell.style.backgroundColor = '#2a2a8c'; // Azul oscuro
+                        
+                        // Crear el contenedor del SVG
+                        const svgContainer = document.createElement('div');
+                        svgContainer.className = 'center-container';
+                        
+                        // Contenido SVG de la estrella de 8 puntas (ajustado para visualización)
+                        const svgContent = `
+                            <svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" 
+                                 width="90%" height="90%" viewBox="545.87 8701.18 6775.3 6775.3"
+                                 style="shape-rendering:geometricPrecision; text-rendering:geometricPrecision; 
+                                       image-rendering:optimizeQuality; fill-rule:evenodd; clip-rule:evenodd">
+                              <polygon fill="white" stroke="none" 
+                                       points="3933.52,8701.18 4496.45,10729.81 6328.95,9693.4 5292.54,11525.9 
+                                              7321.17,12088.83 5292.54,12651.76 6328.95,14484.26 4496.45,13447.85 
+                                              3933.52,15476.48 3370.59,13447.85 1538.09,14484.26 2574.5,12651.76 
+                                              545.87,12088.83 2574.5,11525.9 1538.09,9693.4 3370.59,10729.81" />
+                            </svg>
+                        `;
+                        
+                        // Añadir el SVG al contenedor
+                        svgContainer.innerHTML = svgContent;
+                        cell.appendChild(svgContainer);
+                        
+                        cellHasContent = true;
+                    }
+                    // Posición de Saturno
+                    else if (isSaturnPosition || isSaturnCrossPosition) {
+                        cell.classList.add('saturn-cell');
+                        cell.style.backgroundColor = '#000088'; // Azul oscuro
+                        cellHasContent = true;
+                    }
+                    // Casillas sin contenido y fuera de zonas de casa
+                    else if (!inHouse) {
+                        cell.classList.add('no-border');
+                    }
+                    
+                    board.appendChild(cell);
+                    
+                    // Guardar referencia en el estado del juego
+                    gameState.board.push({
+                        row,
+                        col,
+                        hasSymbol: false,
+                        symbol: null,
+                        symbolColor: null,
+                        pieces: [],
+                        inHouse: inHouse,
+                        houseIndex: houseIndex,
+                        isSaturnPosition: isSaturnPosition || isSaturnCrossPosition,
+                        isInCross: isCellInCross,
+                        crossColor: cellCrossColor,
+                        lineName: lineName
+                    });
+                    
+                    // Evento de clic para mover fichas
+                    cell.addEventListener('click', () => handleCellClick(row, col));
+                }
+            }
+            
+            // Añadir los overlays de las casas
+            for (const house of houseZones) {
+                const houseOverlay = document.createElement('div');
+                houseOverlay.className = 'house-overlay';
+                houseOverlay.style.width = `${house.size * (100/15)}%`;
+                houseOverlay.style.height = `${house.size * (100/15)}%`;
+                houseOverlay.style.left = `${house.startCol * (100/15)}%`;
+                houseOverlay.style.top = `${house.startRow * (100/15)}%`;
+                houseOverlay.style.backgroundColor = house.color;
+                
+                // Añadir el símbolo de la casa en el centro
+                const symbolDiv = document.createElement('div');
+                symbolDiv.className = `house-symbol ${house.symbol}-symbol`;
+                symbolDiv.style.backgroundColor = house.color;
+                
+                // Añadir atributo para identificar a qué jugador pertenece esta casa
+                let playerIndex = -1;
+                if (house.name === "green") playerIndex = 0;
+                else if (house.name === "blue") playerIndex = 1;
+                else if (house.name === "pink") playerIndex = 2;
+                else if (house.name === "yellow") playerIndex = 3;
+                
+                symbolDiv.dataset.house = playerIndex.toString();
+                
+                // Añadir evento de clic para seleccionar ficha de casa
+                symbolDiv.addEventListener('click', () => handleHouseSymbolClick(playerIndex));
+                
+                houseOverlay.appendChild(symbolDiv);
+                board.appendChild(houseOverlay);
+            }
+            
+            // DEFINICIÓN EXPLÍCITA DE CADA SÍMBOLO
+            const symbolsMap = [
+                // FILA 0
+                { row: 0, col: 6, planet: 'Sol_Rojo', color: 'pink' },
+                { row: 0, col: 7, planet: 'Saturno', color: 'white' },
+                { row: 0, col: 8, planet: 'Júpiter_Rojo', color: 'pink' },
+                
+                // FILA 1
+                { row: 1, col: 6, planet: 'Luna_Azul', color: 'blue' },
+                { row: 1, col: 7, planet: 'Júpiter', color: 'white' },
+                { row: 1, col: 8, planet: 'Marte_Azul', color: 'blue' },
+                
+                // FILA 2
+                { row: 2, col: 6, planet: 'Mercurio_Amarillo', color: 'yellow' },
+                { row: 2, col: 7, planet: 'Marte', color: 'white' },
+                { row: 2, col: 8, planet: 'Venus_Amarillo', color: 'yellow' },
+                
+                // FILA 3
+                { row: 3, col: 6, planet: 'Venus_Verde', color: 'green' },
+                { row: 3, col: 7, planet: 'Venus', color: 'white' },
+                { row: 3, col: 8, planet: 'Mercurio_Verde', color: 'green' },
+                
+                // FILA 4
+                { row: 4, col: 6, planet: 'Marte_Rojo', color: 'pink' },
+                { row: 4, col: 7, planet: 'Mercurio', color: 'white' },
+                { row: 4, col: 8, planet: 'Luna_Amarillo', color: 'yellow' },
+                
+                // FILA 5
+                { row: 5, col: 6, planet: 'Júpiter_Azul', color: 'blue' },
+                { row: 5, col: 7, planet: 'Luna', color: 'white' },
+                { row: 5, col: 8, planet: 'Sol_Verde', color: 'green' },
+                
+                // FILA 6
+                { row: 6, col: 0, planet: 'Júpiter_Rojo', color: 'pink' },
+                { row: 6, col: 1, planet: 'Marte_Azul', color: 'blue' },
+                { row: 6, col: 2, planet: 'Venus_Amarillo', color: 'yellow' },
+                { row: 6, col: 3, planet: 'Mercurio_Verde', color: 'green' },
+                { row: 6, col: 4, planet: 'Luna_Amarillo', color: 'yellow' },
+                { row: 6, col: 5, planet: 'Sol_Verde', color: 'green' },
+                { row: 6, col: 6, planet: 'Saturno', color: 'white' },
+                { row: 6, col: 7, planet: 'Sol', color: 'white' },
+                { row: 6, col: 8, planet: 'Saturno', color: 'white' },
+                { row: 6, col: 9, planet: 'Júpiter_Azul', color: 'blue' },
+                { row: 6, col: 10, planet: 'Marte_Rojo', color: 'pink' },
+                { row: 6, col: 11, planet: 'Venus_Verde', color: 'green' },
+                { row: 6, col: 12, planet: 'Mercurio_Amarillo', color: 'yellow' },
+                { row: 6, col: 13, planet: 'Luna_Azul', color: 'blue' },
+                { row: 6, col: 14, planet: 'Sol_Rojo', color: 'pink' },
+                
+                // FILA 7 - CRUZ HORIZONTAL
+                { row: 7, col: 0, planet: 'Saturno', color: 'white' },
+                { row: 7, col: 1, planet: 'Júpiter', color: 'white' },
+                { row: 7, col: 2, planet: 'Marte', color: 'white' },
+                { row: 7, col: 3, planet: 'Venus', color: 'white' },
+                { row: 7, col: 4, planet: 'Mercurio', color: 'white' },
+                { row: 7, col: 5, planet: 'Luna', color: 'white' },
+                { row: 7, col: 6, planet: 'Sol', color: 'white' },
+                { row: 7, col: 8, planet: 'Sol', color: 'white' },
+                { row: 7, col: 9, planet: 'Luna', color: 'white' },
+                { row: 7, col: 10, planet: 'Mercurio', color: 'white' },
+                { row: 7, col: 11, planet: 'Venus', color: 'white' },
+                { row: 7, col: 12, planet: 'Marte', color: 'white' },
+                { row: 7, col: 13, planet: 'Júpiter', color: 'white' },
+                { row: 7, col: 14, planet: 'Saturno', color: 'white' },
+                
+                // FILA 8
+                { row: 8, col: 0, planet: 'Sol_Rojo', color: 'pink' },
+                { row: 8, col: 1, planet: 'Luna_Azul', color: 'blue' },
+                { row: 8, col: 2, planet: 'Mercurio_Amarillo', color: 'yellow' },
+                { row: 8, col: 3, planet: 'Venus_Verde', color: 'green' },
+                { row: 8, col: 4, planet: 'Marte_Rojo', color: 'pink' },
+                { row: 8, col: 5, planet: 'Júpiter_Azul', color: 'blue' },
+                { row: 8, col: 6, planet: 'Saturno', color: 'white' },
+                { row: 8, col: 7, planet: 'Sol', color: 'white' },
+                { row: 8, col: 8, planet: 'Saturno', color: 'white' },
+                { row: 8, col: 9, planet: 'Sol_Verde', color: 'green' },
+                { row: 8, col: 10, planet: 'Luna_Amarillo', color: 'yellow' },
+                { row: 8, col: 11, planet: 'Mercurio_Verde', color: 'green' },
+                { row: 8, col: 12, planet: 'Venus_Amarillo', color: 'yellow' },
+                { row: 8, col: 13, planet: 'Marte_Azul', color: 'blue' },
+                { row: 8, col: 14, planet: 'Júpiter_Rojo', color: 'pink' },
+                
+                // FILA 9
+                { row: 9, col: 6, planet: 'Sol_Verde', color: 'green' },
+                { row: 9, col: 7, planet: 'Luna', color: 'white' },
+                { row: 9, col: 8, planet: 'Júpiter_Azul', color: 'blue' },
+                
+                // FILA 10
+                { row: 10, col: 6, planet: 'Luna_Amarillo', color: 'yellow' },
+                { row: 10, col: 7, planet: 'Mercurio', color: 'white' },
+                { row: 10, col: 8, planet: 'Marte_Rojo', color: 'pink' },
+                
+                // FILA 11
+                { row: 11, col: 6, planet: 'Mercurio_Verde', color: 'green' },
+                { row: 11, col: 7, planet: 'Venus', color: 'white' },
+                { row: 11, col: 8, planet: 'Venus_Verde', color: 'green' },
+                
+                // FILA 12
+                { row: 12, col: 6, planet: 'Venus_Amarillo', color: 'yellow' },
+                { row: 12, col: 7, planet: 'Marte', color: 'white' },
+                { row: 12, col: 8, planet: 'Mercurio_Amarillo', color: 'yellow' },
+                
+                // FILA 13
+                { row: 13, col: 6, planet: 'Marte_Azul', color: 'blue' },
+                { row: 13, col: 7, planet: 'Júpiter', color: 'white' },
+                { row: 13, col: 8, planet: 'Luna_Azul', color: 'blue' },
+                
+                // FILA 14
+                { row: 14, col: 6, planet: 'Júpiter_Rojo', color: 'pink' },
+                { row: 14, col: 7, planet: 'Saturno', color: 'white' },
+                { row: 14, col: 8, planet: 'Sol_Rojo', color: 'pink' }
+            ];
+            
+            // Añadir todos los símbolos al tablero según la configuración
+            for (const symbolInfo of symbolsMap) {
+                // Para las celdas que están en zonas de casa, no añadimos símbolos
+                const isInHouseZone = houseZones.some(house => 
+                    symbolInfo.row >= house.startRow && 
+                    symbolInfo.row < house.startRow + house.size && 
+                    symbolInfo.col >= house.startCol && 
+                    symbolInfo.col < house.startCol + house.size
+                );
+                
+                if (!isInHouseZone) {
+                    const cells = document.querySelectorAll(`.cell[data-row="${symbolInfo.row}"][data-col="${symbolInfo.col}"]`);
+                    
+                    if (cells.length > 0) {
+                        const cell = cells[0];
+                        
+                        // Crear el círculo con el símbolo
+                        const symbolDiv = document.createElement('div');
+                        symbolDiv.className = `symbol circle-${symbolInfo.color}`;
+                        
+                        // Obtener el símbolo Unicode para el planeta
+                        const symbolObj = symbols.find(s => s.name === symbolInfo.planet);
+                        const symbolChar = symbolObj ? symbolObj.symbol : '?';
+                        
+                        // Añadir el símbolo
+                        symbolDiv.textContent = symbolChar;
+                        
+                        // Añadir el círculo a la celda
+                        cell.appendChild(symbolDiv);
+                        
+                        // Remover la clase no-border si tiene un símbolo
+                        cell.classList.remove('no-border');
+                        
+                        // Actualizar el estado del juego
+                        const cellIndex = gameState.board.findIndex(c => c.row === symbolInfo.row && c.col === symbolInfo.col);
+                        if (cellIndex !== -1) {
+                            gameState.board[cellIndex].hasSymbol = true;
+                            gameState.board[cellIndex].symbol = symbolInfo.planet;
+                            gameState.board[cellIndex].planet = symbolInfo.planet;
+                            gameState.board[cellIndex].symbolColor = symbolInfo.color;
+                        }
+                    }
+                }
+            }
+            
+            // Inicializar las casas de los jugadores
+            gameState.houses = [
+                { row: 12, col: 12 }, // Jugador 1 (Verde)
+                { row: 2, col: 12 },  // Jugador 2 (Azul)
+                { row: 2, col: 2 },   // Jugador 3 (Rosa)
+                { row: 12, col: 2 }   // Jugador 4 (Amarillo)
+            ];
+
+            // Añadir información sobre las zonas de cruz
+            addCrossInformation();
+
+            // Debug fin
+            debug("Tablero inicializado correctamente");
+        }
+        
+        // Añadir información de la zona de cruz a las celdas del tablero
+        function addCrossInformation() {
+            // Actualizar la información de las celdas del tablero con las zonas de cruz específicas
+            for (let i = 0; i < gameState.board.length; i++) {
+                const cell = gameState.board[i];
+                
+                // Para cada jugador, verificar si la celda está en su zona de cruz
+                for (let playerIdx = 0; playerIdx < 4; playerIdx++) {
+                    const zone = playerCrossZones[playerIdx];
+                    
+                    if (zone.type === "vertical" && cell.col === zone.col && 
+                        cell.row >= zone.minRow && cell.row <= zone.maxRow) {
+                        cell.isInCross = true;
+                        cell.crossColor = zone.color;
+                        cell.inPlayerCross = playerIdx;
+                    } 
+                    else if (zone.type === "horizontal" && cell.row === zone.row && 
+                        cell.col >= zone.minCol && cell.col <= zone.maxCol) {
+                        cell.isInCross = true;
+                        cell.crossColor = zone.color;
+                        cell.inPlayerCross = playerIdx;
+                    }
+                }
+            }
+        }
+        
+        // Inicializar la interfaz de jugadores
+        function initializePlayerInfo() {
+            const gameInfoDiv = document.getElementById('game-info');
+            gameInfoDiv.innerHTML = '';
+            
+            // Para cada jugador activo, crear su panel de información
+            for (const index of gameState.activePlayerIndices) {
+                const player = gameState.players[index];
+                const bgColor = player.bgColor || 'transparent';
+                
+                const playerDiv = document.createElement('div');
+                playerDiv.className = `player-info ${index === gameState.currentPlayer ? 'active' : ''}`;
+                playerDiv.style.backgroundColor = bgColor;
+                playerDiv.style.width = gameState.gameMode === 2 ? '48%' : '23%';
+                
+                const playerNameSpan = document.createElement('h3');
+                playerNameSpan.textContent = `${player.name} (${player.colorName})`;
+                
+                const housesDiv = document.createElement('div');
+                housesDiv.className = 'houses';
+                
+                // Añadir fichas en casa
+                for (let i = 0; i < player.piecesInHouse; i++) {
+                    const housePiece = document.createElement('div');
+                    housePiece.className = `house-piece ${player.color}`;
+                    housesDiv.appendChild(housePiece);
+                }
+                
+                playerDiv.appendChild(playerNameSpan);
+                playerDiv.appendChild(housesDiv);
+                gameInfoDiv.appendChild(playerDiv);
+            }
+        }
+        
+        // Tirar el dado con símbolos astrológicos
+        function rollDice() {
+            debug("Tirando dado...");
+            
+            // Limpiar cualquier selección previa
+            if (gameState.selectedPiece) {
+                const pieceElement = document.getElementById(gameState.selectedPiece.id);
+                if (pieceElement) {
+                    pieceElement.classList.remove('selected-piece');
+                }
+            }
+            gameState.selectedPiece = null;
+            gameState.selectionMode = false;
+            
+            const diceResult = document.getElementById('dice-result');
+            const elementInfo = document.getElementById('element-info');
+            
+            // Elegir resultado aleatorio de las 12 combinaciones posibles
+            const randomIndex = Math.floor(Math.random() * dadoCombinations.length);
+            const result = dadoCombinations[randomIndex];
+            
+            // Obtener el símbolo Unicode para el planeta
+            const symbolObj = symbols.find(s => s.name === result.planet);
+            const symbolChar = symbolObj ? symbolObj.symbol : '?';
+            
+            // Mostrar el resultado en el dado
+            diceResult.textContent = symbolChar;
+            diceResult.className = 'dice-result';
+            diceResult.classList.add(`circle-${result.color}`);
+            
+            // Mostrar información del elemento
+            elementInfo.textContent = `${result.planet} - ${result.element}`;
+            
+            // MAPEO CORRECTO DEL ELEMENTO AL COLOR DEL TABLERO
+            const boardColor = mapElementToColor(result.element);
+            
+            // Actualizar estado del juego
+            gameState.diceResult = {
+                planet: result.planet,
+                element: result.element,
+                color: result.color,
+                boardColor: boardColor
+            };
+            
+            // Limpiar resaltado previo
+            clearHighlights();
+            
+            // Encontrar movimientos posibles con las nuevas reglas
+            findPossibleMoves();
+            
+            // Actualizar controles basado en si hay movimientos posibles
+            document.getElementById('roll-dice').disabled = true;
+            
+            if (gameState.possibleMoves.length === 0) {
+                document.getElementById('move-piece').disabled = true;
+                document.getElementById('skip-turn').disabled = false; // Puede pasar turno si no hay movimientos
+                
+                logMessage(`${gameState.players[gameState.activePlayerIndices[gameState.currentPlayer]].name} ha tirado el dado: ${result.planet} - ${result.element} (${boardColor}).`);
+                logMessage("No hay movimientos posibles. Puedes pasar turno.");
+            } else {
+                document.getElementById('move-piece').disabled = false;
+                document.getElementById('skip-turn').disabled = true; // No puede pasar turno si hay movimientos
+                
+                // Resaltar los movimientos posibles
+                highlightPossibleMoves();
+                
+                // Log para el jugador mostrando el color específico
+                logMessage(`${gameState.players[gameState.activePlayerIndices[gameState.currentPlayer]].name} ha tirado el dado: ${result.planet} - ${result.element} (${boardColor}).`);
+                
+                const fromHouseMoves = gameState.possibleMoves.filter(m => m.type === 'fromHouse').length;
+                const normalMoves = gameState.possibleMoves.filter(m => m.type === 'normal').length;
+                
+                if (fromHouseMoves > 0 && normalMoves === 0) {
+                    logMessage(`Hay ${fromHouseMoves} posibilidades para sacar fichas de casa.`);
+                } else if (fromHouseMoves === 0 && normalMoves > 0) {
+                    logMessage(`Hay ${normalMoves} movimientos posibles. Haz clic en "Mover Ficha" para seleccionar una.`);
+                } else {
+                    logMessage(`Hay ${gameState.possibleMoves.length} movimientos posibles (${fromHouseMoves} desde casa, ${normalMoves} en tablero).`);
+                }
+            }
+            
+            // Si es IA, hacer su movimiento automáticamente
+            const currentPlayerIdx = gameState.activePlayerIndices[gameState.currentPlayer];
+            if (gameState.players[currentPlayerIdx].ai && !gameState.gameOver) {
+                setTimeout(playAITurn, 1000);
+            }
+        }
+        
+        // Mapear elemento a color
+        function mapElementToColor(element) {
+            switch (element) {
+                case 'Fuego': return 'red'; // Cambiado a 'red' para coincidir con el color en el tablero
+                case 'Agua': return 'blue';
+                case 'Tierra': return 'green';
+                case 'Aire': return 'yellow';
+                default: return 'white';
+            }
+        }
+        
+        function clearHighlights() {
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => {
+                cell.classList.remove('highlight-move');
+            });
+            
+            // También limpiar cualquier resaltado de ficha seleccionada
+            const pieces = document.querySelectorAll('.piece');
+            pieces.forEach(piece => {
+                piece.classList.remove('selected-piece');
+            });
+            
+            // Limpiar selección de casa
+            const selectedHouse = document.querySelector('.selected-house');
+            if (selectedHouse) {
+                selectedHouse.classList.remove('selected-house');
+            }
+            
+            // Resetear modo de casa seleccionada
+            gameState.houseSelected = false;
+        }
+        
+        // Resaltar los movimientos posibles
+        function highlightPossibleMoves() {
+            // Primero limpiamos cualquier resaltado anterior
+            clearHighlights();
+            
+            debug(`Resaltando ${gameState.possibleMoves.length} movimientos posibles`);
+            
+            // Primero confirmar que hay movimientos posibles
+            if (gameState.possibleMoves.length === 0) {
+                return;
+            }
+            
+            // Verificar que no estemos resaltando movimientos a la cruz inadecuados
+            for (const move of gameState.possibleMoves) {
+                const targetCell = gameState.board.find(c => c.row === move.targetRow && c.col === move.targetCol);
+                
+                // Si es un movimiento a la cruz, verificar que sea válido
+                if (targetCell && targetCell.isInCross) {
+                    // Si no es un movimiento explícitamente marcado como movimiento a cruz, ignorarlo
+                    if (!move.isCrossMove) {
+                        debug(`ADVERTENCIA: Ignorando movimiento a cruz no válido: (${move.targetRow}, ${move.targetCol})`);
+                        continue;
+                    }
+                    
+                    // Verificar que el planeta coincida con la posición
+                    const expectedPosition = findCrossPlanetPosition(move.crossPlanet, 
+                                                gameState.activePlayerIndices[gameState.currentPlayer]);
+                    
+                    if (!expectedPosition || expectedPosition.row !== move.targetRow || expectedPosition.col !== move.targetCol) {
+                        debug(`ADVERTENCIA: Ignorando movimiento a cruz con planeta incorrecto: (${move.targetRow}, ${move.targetCol})`);
+                        continue;
+                    }
+                }
+                
+                // Resaltar el movimiento válido
+                const cell = document.querySelector(`.cell[data-row="${move.targetRow}"][data-col="${move.targetCol}"]`);
+                if (cell) {
+                    cell.classList.add('highlight-move');
+                }
+            }
+        }
+        
+        // Determinar la línea a la que pertenece una celda
+        function getLineName(row, col) {
+            for (const [name, line] of Object.entries(boardLines)) {
+                if ((line.type === "horizontal" && row === line.row && col >= line.minCol && col <= line.maxCol) ||
+                    (line.type === "vertical" && col === line.col && row >= line.minRow && row <= line.maxRow)) {
+                    return name;
+                }
+            }
+            return null;
+        }
+        
+        // Verificar si dos líneas son adyacentes o la misma
+        function areLinesConnected(line1, line2) {
+            // Si es la misma línea, están conectadas
+            if (line1 === line2) {
+                debug(`Las líneas ${line1} y ${line2} son la misma línea`);
+                return true;
+            }
+            
+            if (!line1 || !line2) return false;
+            
+            // Verificar si las líneas son adyacentes según la definición explícita
+            if (adjacentLines[line1] && adjacentLines[line1].includes(line2)) {
+                debug(`Las líneas ${line1} y ${line2} son adyacentes según la definición de adjacentLines`);
+                
+                // Obtener el tipo de línea (Seco o Humedo)
+                const isLine1Seco = line1.includes("Seco");
+                const isLine2Seco = line2.includes("Seco");
+                
+                // Obtener el color de la línea
+                const getLineColor = (line) => {
+                    if (line.includes("Rojo")) return "Rosa";
+                    if (line.includes("Amarillo")) return "Amarillo";
+                    if (line.includes("Verde")) return "Verde";
+                    if (line.includes("Azul")) return "Azul";
+                    return null;
+                };
+                
+                const line1Color = getLineColor(line1);
+                const line2Color = getLineColor(line2);
+                
+                debug(`Verificando restricciones: ${line1} (${line1Color}, ${isLine1Seco ? "Seco" : "Húmedo"}) -> ${line2} (${line2Color}, ${isLine2Seco ? "Seco" : "Húmedo"})`);
+                
+                // Reglas de adyacencia por colores en el orden: Verde → Azul → Rosa → Amarillo
+                const previousColor = {
+                    "Verde": "Amarillo",
+                    "Azul": "Verde",
+                    "Rosa": "Azul",
+                    "Amarillo": "Rosa"
+                };
+                
+                // Verificar la restricción: Si una ficha está en Línea Húmeda, no puede moverse a Línea Seca de casa anterior
+                const isPreviousColor = (color1, color2) => {
+                    return previousColor[color1] === color2;
+                };
+                
+                // REGLA ESPECÍFICA: Si una ficha está en Línea Húmeda de su casa, no puede moverse a Línea Seca de casa anterior
+                if (!isLine1Seco && isLine2Seco && isPreviousColor(line1Color, line2Color)) {
+                    debug(`RESTRICCIÓN: Ficha en línea Húmeda (${line1}) no puede ir a línea Seca de casa anterior (${line2})`);
+                    return false;
+                }
+                
+                // Si pasa todas las restricciones, las líneas están conectadas
+                return true;
+            }
+            
+            // Si no están en la definición explícita de adyacencias, no están conectadas
+            debug(`Las líneas ${line1} y ${line2} NO están conectadas según adjacentLines`);
+            return false;
+        }
+        
+        // Verificar si una posición está lista para entrar a la cruz
+        function isPositionReadyForCross(row, col, playerIdx) {
+            const playerZone = playerCrossZones[playerIdx];
+            
+            debug(`Verificando si (${row}, ${col}) está listo para cruz de jugador ${playerIdx}`);
+            
+            // Primero verificar si la celda está en una línea definida
+            // (no debe estar en casa o en áreas indefinidas)
+            const cell = gameState.board.find(c => c.row === row && c.col === col);
+            if (!cell || !cell.lineName) {
+                debug(`La celda no está en una línea definida`);
+                return false;
+            }
+            
+            // Para zonas verticales (Verde y Rosa)
+            if (playerZone.type === "vertical") {
+                // Verde: verificar si está en columna 8 (a la derecha de la cruz vertical) 
+                // o columna 6 (a la izquierda de la cruz vertical)
+                // y dentro del rango de filas de la cruz
+                // Y además verificar que no está en una línea de casa inicial
+                if (playerIdx === 0) {
+                    const startLines = playerStartLines[playerIdx];
+                    const isInStartLine = startLines.includes(cell.lineName);
+                    
+                    // Si está en línea inicial, no está lista para entrar a la cruz
+                    if (isInStartLine) {
+                        debug(`Verde: (${row}, ${col}) está en línea inicial, NO está en posición para cruz`);
+                        return false;
+                    }
+                    
+                    const isReady = (col === 8 || col === 6) && row >= playerZone.minRow && row <= playerZone.maxRow;
+                    debug(`Verde: (${row}, ${col}) está en posición: ${isReady}`);
+                    return isReady;
+                }
+                // Rosa: verificar si está en columna 6 (a la izquierda de la cruz vertical)
+                // o columna 8 (a la derecha de la cruz vertical)
+                // y dentro del rango de filas de la cruz
+                else if (playerIdx === 2) {
+                    const startLines = playerStartLines[playerIdx];
+                    const isInStartLine = startLines.includes(cell.lineName);
+                    
+                    // Si está en línea inicial, no está lista para entrar a la cruz
+                    if (isInStartLine) {
+                        debug(`Rosa: (${row}, ${col}) está en línea inicial, NO está en posición para cruz`);
+                        return false;
+                    }
+                    
+                    const isReady = (col === 6 || col === 8) && row >= playerZone.minRow && row <= playerZone.maxRow;
+                    debug(`Rosa: (${row}, ${col}) está en posición: ${isReady}`);
+                    return isReady;
+                }
+            }
+            // Para zonas horizontales (Azul y Amarillo)
+            else {
+                // Azul: verificar si está en fila 6 (arriba de la cruz horizontal)
+                // o fila 8 (abajo de la cruz horizontal)
+                // y dentro del rango de columnas de la cruz
+                if (playerIdx === 1) {
+                    const startLines = playerStartLines[playerIdx];
+                    const isInStartLine = startLines.includes(cell.lineName);
+                    
+                    // Si está en línea inicial, no está lista para entrar a la cruz
+                    if (isInStartLine) {
+                        debug(`Azul: (${row}, ${col}) está en línea inicial, NO está en posición para cruz`);
+                        return false;
+                    }
+                    
+                    const isReady = (row === 6 || row === 8) && col >= playerZone.minCol && col <= playerZone.maxCol;
+                    debug(`Azul: (${row}, ${col}) está en posición: ${isReady}`);
+                    return isReady;
+                }
+                // Amarillo: verificar si está en fila 8 (abajo de la cruz horizontal)
+                // o fila 6 (arriba de la cruz horizontal)
+                // y dentro del rango de columnas de la cruz
+                else if (playerIdx === 3) {
+                    const startLines = playerStartLines[playerIdx];
+                    const isInStartLine = startLines.includes(cell.lineName);
+                    
+                    // Si está en línea inicial, no está lista para entrar a la cruz
+                    if (isInStartLine) {
+                        debug(`Amarillo: (${row}, ${col}) está en línea inicial, NO está en posición para cruz`);
+                        return false;
+                    }
+                    
+                    const isReady = (row === 8 || row === 6) && col >= playerZone.minCol && col <= playerZone.maxCol;
+                    debug(`Amarillo: (${row}, ${col}) está en posición: ${isReady}`);
+                    return isReady;
+                }
+            }
+            
+            debug(`No está en posición de cruz para jugador ${playerIdx}`);
+            return false;
+        }
+        
+// Corrección para la función isPositionReadyForCross
+// Esta función verifica si una ficha está en posición para entrar a la cruz
+
+function isPositionReadyForCross(row, col, playerIdx) {
+    const playerZone = playerCrossZones[playerIdx];
+    
+    debug(`Verificando si (${row}, ${col}) está listo para cruz de jugador ${playerIdx}`);
+    
+    // Primero verificar si la celda está en una línea definida
+    const cell = gameState.board.find(c => c.row === row && c.col === col);
+    if (!cell || !cell.lineName) {
+        debug(`La celda no está en una línea definida`);
+        return false;
+    }
+    
+    // Para zonas verticales (Verde y Rosa)
+    if (playerZone.type === "vertical") {
+        // Verde: verificar si está en columna 8 (a la derecha de la cruz vertical) 
+        // o columna 6 (a la izquierda de la cruz vertical)
+        // y dentro del rango de filas de la cruz o en la fila límite
+        if (playerIdx === 0) {
+            const startLines = playerStartLines[playerIdx];
+            const isInStartLine = startLines.includes(cell.lineName);
+            
+            // Si está en línea inicial, no está lista para entrar a la cruz
+            if (isInStartLine) {
+                debug(`Verde: (${row}, ${col}) está en línea inicial, NO está en posición para cruz`);
+                return false;
+            }
+            
+            // Incluir explícitamente las posiciones límite (filas 8 y 9)
+            const isReady = (
+                (col === 8 || col === 6) && 
+                ((row >= playerZone.minRow && row <= playerZone.maxRow) || 
+                 // Posiciones especiales para el límite
+                 (col === 6 && row === 8) || 
+                 (col === 8 && row === 8))
+            );
+            debug(`Verde: (${row}, ${col}) está en posición: ${isReady}`);
+            return isReady;
+        }
+        // Rosa: verificar posiciones similares pero en su zona
+        else if (playerIdx === 2) {
+            const startLines = playerStartLines[playerIdx];
+            const isInStartLine = startLines.includes(cell.lineName);
+            
+            if (isInStartLine) {
+                debug(`Rosa: (${row}, ${col}) está en línea inicial, NO está en posición para cruz`);
+                return false;
+            }
+            
+            // Incluir explícitamente las posiciones límite (filas 6 y 7)
+            const isReady = (
+                (col === 6 || col === 8) && 
+                ((row >= playerZone.minRow && row <= playerZone.maxRow) || 
+                 // Posiciones especiales para el límite
+                 (col === 6 && row === 6) || 
+                 (col === 8 && row === 6))
+            );
+            debug(`Rosa: (${row}, ${col}) está en posición: ${isReady}`);
+            return isReady;
+        }
+    }
+    // Para zonas horizontales (Azul y Amarillo)
+    else {
+        // Azul: verificar posiciones para su zona
+        if (playerIdx === 1) {
+            const startLines = playerStartLines[playerIdx];
+            const isInStartLine = startLines.includes(cell.lineName);
+            
+            if (isInStartLine) {
+                debug(`Azul: (${row}, ${col}) está en línea inicial, NO está en posición para cruz`);
+                return false;
+            }
+            
+            // Incluir explícitamente las posiciones límite (columnas 8 y 9)
+            const isReady = (
+                (row === 6 || row === 8) && 
+                ((col >= playerZone.minCol && col <= playerZone.maxCol) || 
+                 // Posiciones especiales para el límite
+                 (row === 6 && col === 8) || 
+                 (row === 8 && col === 8))
+            );
+            debug(`Azul: (${row}, ${col}) está en posición: ${isReady}`);
+            return isReady;
+        }
+        // Amarillo: verificar posiciones para su zona
+        else if (playerIdx === 3) {
+            const startLines = playerStartLines[playerIdx];
+            const isInStartLine = startLines.includes(cell.lineName);
+            
+            if (isInStartLine) {
+                debug(`Amarillo: (${row}, ${col}) está en línea inicial, NO está en posición para cruz`);
+                return false;
+            }
+            
+            // Incluir explícitamente las posiciones límite (columnas 6 y 7)
+            const isReady = (
+                (row === 8 || row === 6) && 
+                ((col >= playerZone.minCol && col <= playerZone.maxCol) || 
+                 // Posiciones especiales para el límite
+                 (row === 8 && col === 6) || 
+                 (row === 6 && col === 6))
+            );
+            debug(`Amarillo: (${row}, ${col}) está en posición: ${isReady}`);
+            return isReady;
+        }
+    }
+    
+    debug(`No está en posición de cruz para jugador ${playerIdx}`);
+    return false;
+}
+
+// Corrección para la función findPossibleMoves
+// Esta función determina qué movimientos son posibles en base a la tirada del dado
+
+function findPossibleMoves() {
+    gameState.possibleMoves = [];
+    
+    if (!gameState.diceResult) return;
+    
+    const currentPlayerIdx = gameState.activePlayerIndices[gameState.currentPlayer];
+    const currentPlayer = gameState.players[currentPlayerIdx];
+    const { planet, boardColor } = gameState.diceResult;
+    
+    debug(`Buscando movimientos para planeta: ${planet}, color: ${boardColor}`);
+    
+    // 1. Verificar si hay fichas en posición para entrar a la cruz
+    // SOLO cuando la tirada coincide con el planeta específico (ignorando el color)
+    const basePlanet = planet.split('_')[0];
+    
+    // Planetas válidos para la cruz
+    const validPlanets = ["Sol", "Luna", "Mercurio", "Venus", "Marte", "Júpiter"];
+    
+    // Antes de buscar, mostrar información de depuración sobre todas las fichas del jugador actual
+    const playerPieces = gameState.pieces.filter(p => p.player === currentPlayerIdx && !p.inCross);
+    debug(`El jugador ${currentPlayerIdx} tiene ${playerPieces.length} fichas en el tablero`);
+    
+    for (const piece of playerPieces) {
+        const ready = isPositionReadyForCross(piece.row, piece.col, currentPlayerIdx);
+        debug(`Ficha en (${piece.row}, ${piece.col}): ¿Lista para cruz? ${ready}`);
+    }
+    
+    if (validPlanets.includes(basePlanet)) {
+        debug(`Planeta base válido para la cruz: ${basePlanet}`);
+        
+        // Encontrar la posición esperada en la cruz para este planeta
+        const expectedCrossPosition = findCrossPlanetPosition(basePlanet, currentPlayerIdx);
+        if (expectedCrossPosition) {
+            debug(`Posición esperada en cruz para ${basePlanet}: (${expectedCrossPosition.row}, ${expectedCrossPosition.col})`);
+        } else {
+            debug(`No se encontró posición en cruz para ${basePlanet}`);
+        }
+        
+        // Buscar fichas que estén en posición para entrar a la cruz
+        const piecesReadyForCross = playerPieces.filter(p => 
+            isPositionReadyForCross(p.row, p.col, currentPlayerIdx)
+        );
+        
+        if (piecesReadyForCross.length > 0) {
+            debug(`Encontradas ${piecesReadyForCross.length} fichas en posición para entrar a la cruz`);
+            
+            // Para cada ficha lista, verificar si puede entrar a la cruz con este planeta
+            for (const piece of piecesReadyForCross) {
+                const crossPosition = findCrossPlanetPosition(basePlanet, currentPlayerIdx);
+                
+                if (crossPosition) {
+                    debug(`Ficha en (${piece.row}, ${piece.col}) puede entrar a la cruz en (${crossPosition.row}, ${crossPosition.col})`);
+                    
+                    // Verificar que no hay otra ficha propia en esa posición
+                    const isOccupiedBySamePlayer = gameState.pieces.some(p => 
+                        p.player === currentPlayerIdx && 
+                        p.row === crossPosition.row && 
+                        p.col === crossPosition.col);
+                    
+                    if (!isOccupiedBySamePlayer) {
+                        gameState.possibleMoves.push({
+                            type: 'normal',
+                            pieceId: piece.id,
+                            currentRow: piece.row,
+                            currentCol: piece.col,
+                            targetRow: crossPosition.row,
+                            targetCol: crossPosition.col,
+                            isCrossMove: true,
+                            crossPlanet: basePlanet // Añadir el planeta para verificación posterior
+                        });
+                        debug(`Añadido movimiento a cruz para planeta ${basePlanet} en (${crossPosition.row}, ${crossPosition.col})`);
+                    } else {
+                        debug(`Posición en cruz (${crossPosition.row}, ${crossPosition.col}) ya ocupada por ficha del mismo jugador`);
+                    }
+                }
+            }
+        } else {
+            debug(`No se encontraron fichas en posición para entrar a la cruz`);
+        }
+    } else {
+        debug(`El planeta ${basePlanet} no está en la lista de planetas válidos para la cruz`);
+    }
+    
+    // Continuar con el resto de la función para buscar movimientos normales...
+    // (código para buscar casillas coincidentes, etc.)
+    
+    // Al final de la función, mostrar un resumen de todos los movimientos encontrados
+    debug(`Total de movimientos posibles: ${gameState.possibleMoves.length}`);
+    for (const move of gameState.possibleMoves) {
+        if (move.isCrossMove) {
+            debug(`Movimiento a cruz: Ficha ${move.pieceId} de (${move.currentRow}, ${move.currentCol}) a (${move.targetRow}, ${move.targetCol}) - Planeta ${move.crossPlanet}`);
+        } else if (move.type === 'fromHouse') {
+            debug(`Movimiento desde casa a (${move.targetRow}, ${move.targetCol})`);
+        } else {
+            debug(`Movimiento normal: Ficha ${move.pieceId} de (${move.currentRow}, ${move.currentCol}) a (${move.targetRow}, ${move.targetCol})`);
+        }
+    }
+}
+
+        // Corrección para la función findCrossPlanetPosition
+        // Esta función determina la posición correcta en la cruz para un planeta específico
+
+        function findCrossPlanetPosition(basePlanet, playerIdx) {
+            const playerZone = playerCrossZones[playerIdx];
+            // Planetas en orden: Júpiter, Marte, Venus, Mercurio, Luna, Sol
+            const planetSymbols = ["Júpiter", "Marte", "Venus", "Mercurio", "Luna", "Sol"];
+            
+            // Índice del planeta en la lista
+            const planetIndex = planetSymbols.indexOf(basePlanet);
+            if (planetIndex === -1) {
+                debug(`Planeta no encontrado: ${basePlanet}`);
+                return null; // Planeta no encontrado
+            }
+            
+            debug(`Encontrando posición para ${basePlanet} (índice ${planetIndex}) en la cruz de jugador ${playerIdx}`);
+            
+            // Zonas verticales (Verde y Rosa)
+            if (playerZone.type === "vertical") {
+                // Para Verde (abajo hacia arriba)
+                if (playerIdx === 0) {
+                    const row = playerZone.maxRow - planetIndex;
+                    const position = { row, col: playerZone.col };
+                    debug(`Posición en cruz para ${basePlanet} (Verde): (${position.row}, ${position.col})`);
+                    return position;
+                }
+                // Para Rosa (arriba hacia abajo)
+                else if (playerIdx === 2) {
+                    const row = playerZone.minRow + planetIndex;
+                    const position = { row, col: playerZone.col };
+                    debug(`Posición en cruz para ${basePlanet} (Rosa): (${position.row}, ${position.col})`);
+                    return position;
+                }
+            }
+            // Zonas horizontales (Azul y Amarillo)
+            else {
+                // Para Azul (izquierda a derecha)
+                if (playerIdx === 1) {
+                    const col = playerZone.minCol + planetIndex;
+                    const position = { row: playerZone.row, col };
+                    debug(`Posición en cruz para ${basePlanet} (Azul): (${position.row}, ${position.col})`);
+                    return position;
+                }
+                // Para Amarillo (derecha a izquierda)
+                else if (playerIdx === 3) {
+                    const col = playerZone.maxCol - planetIndex;
+                    const position = { row: playerZone.row, col };
+                    debug(`Posición en cruz para ${basePlanet} (Amarillo): (${position.row}, ${position.col})`);
+                    return position;
+                }
+            }
+            
+            debug(`No se encontró posición para planeta ${basePlanet} del jugador ${playerIdx}`);
+            return null;
+        }        
+
+// Verificar si una posición está ocupada por una ficha en una casilla segura
+function isOccupiedBySafePiece(row, col) {
+    const cell = gameState.board.find(c => c.row === row && c.col === col);
+    if (!cell) return false;
+    
+    // Verificar si hay alguna ficha en esta posición
+    const pieces = gameState.pieces.filter(p => p.row === row && p.col === col);
+    if (pieces.length === 0) return false;
+    
+    // Verificar si alguna de estas fichas está en una casilla segura
+    const currentPlayerIdx = gameState.activePlayerIndices[gameState.currentPlayer];
+    const isInLastTwoRows = isInLastTwoRowsBeforeCross(row, col, currentPlayerIdx);
+    
+    for (const piece of pieces) {
+        // Si la ficha es nuestra, no está ocupada por una ficha segura de otro
+        if (piece.player === currentPlayerIdx) continue;
+        
+        // Verificar si la ficha está en una casilla segura
+        const isSafeSpot = !isInLastTwoRows && isPlanetSafeForPlayer(cell.planet, piece.player);
+        if (isSafeSpot) {
+            return true; // La casilla está ocupada por una ficha en casilla segura
+        }
+    }
+    
+    return false;
+}
+
+        // Encontrar movimientos posibles según la tirada del dado
+// Función completa findPossibleMoves con todas las funcionalidades
+function findPossibleMoves() {
+    gameState.possibleMoves = [];
+    
+    if (!gameState.diceResult) return;
+    
+    const currentPlayerIdx = gameState.activePlayerIndices[gameState.currentPlayer];
+    const currentPlayer = gameState.players[currentPlayerIdx];
+    const { planet, boardColor } = gameState.diceResult;
+    
+    debug(`Buscando movimientos para planeta: ${planet}, color: ${boardColor}`);
+    
+    // 1. Verificar si hay fichas en posición para entrar a la cruz
+    // SOLO cuando la tirada coincide con el planeta específico (ignorando el color)
+    const basePlanet = planet.split('_')[0];
+    
+    // Planetas válidos para la cruz
+    const validPlanets = ["Sol", "Luna", "Mercurio", "Venus", "Marte", "Júpiter"];
+    
+    // Antes de buscar, mostrar información de depuración sobre todas las fichas del jugador actual
+    const playerPieces = gameState.pieces.filter(p => p.player === currentPlayerIdx && !p.inCross);
+    debug(`El jugador ${currentPlayerIdx} tiene ${playerPieces.length} fichas en el tablero`);
+    
+    for (const piece of playerPieces) {
+        const ready = isPositionReadyForCross(piece.row, piece.col, currentPlayerIdx);
+        debug(`Ficha en (${piece.row}, ${piece.col}): ¿Lista para cruz? ${ready}`);
+    }
+    
+    if (validPlanets.includes(basePlanet)) {
+        debug(`Planeta base válido para la cruz: ${basePlanet}`);
+        
+        // Encontrar la posición esperada en la cruz para este planeta
+        const expectedCrossPosition = findCrossPlanetPosition(basePlanet, currentPlayerIdx);
+        if (expectedCrossPosition) {
+            debug(`Posición esperada en cruz para ${basePlanet}: (${expectedCrossPosition.row}, ${expectedCrossPosition.col})`);
+        } else {
+            debug(`No se encontró posición en cruz para ${basePlanet}`);
+        }
+        
+        // Buscar fichas que estén en posición para entrar a la cruz
+        const piecesReadyForCross = playerPieces.filter(p => 
+            isPositionReadyForCross(p.row, p.col, currentPlayerIdx)
+        );
+        
+        if (piecesReadyForCross.length > 0) {
+            debug(`Encontradas ${piecesReadyForCross.length} fichas en posición para entrar a la cruz`);
+            
+            // Para cada ficha lista, verificar si puede entrar a la cruz con este planeta
+            for (const piece of piecesReadyForCross) {
+                const crossPosition = findCrossPlanetPosition(basePlanet, currentPlayerIdx);
+                
+                if (crossPosition) {
+                    debug(`Ficha en (${piece.row}, ${piece.col}) puede entrar a la cruz en (${crossPosition.row}, ${crossPosition.col})`);
+                    
+                    // Verificar que no hay otra ficha propia en esa posición
+                    const isOccupiedBySamePlayer = gameState.pieces.some(p => 
+                        p.player === currentPlayerIdx && 
+                        p.row === crossPosition.row && 
+                        p.col === crossPosition.col);
+                    
+                    if (!isOccupiedBySamePlayer) {
+                        gameState.possibleMoves.push({
+                            type: 'normal',
+                            pieceId: piece.id,
+                            currentRow: piece.row,
+                            currentCol: piece.col,
+                            targetRow: crossPosition.row,
+                            targetCol: crossPosition.col,
+                            isCrossMove: true,
+                            crossPlanet: basePlanet // Añadir el planeta para verificación posterior
+                        });
+                        debug(`Añadido movimiento a cruz para planeta ${basePlanet} en (${crossPosition.row}, ${crossPosition.col})`);
+                    } else {
+                        debug(`Posición en cruz (${crossPosition.row}, ${crossPosition.col}) ya ocupada por ficha del mismo jugador`);
+                    }
+                }
+            }
+        } else {
+            debug(`No se encontraron fichas en posición para entrar a la cruz`);
+        }
+    } else {
+        debug(`El planeta ${basePlanet} no está en la lista de planetas válidos para la cruz`);
+    }
+    
+    // 2. Buscamos casillas que coincidan exactamente con el planeta y color de la tirada
+    const matchingCells = [];
+    for (let i = 0; i < gameState.board.length; i++) {
+        const cell = gameState.board[i];
+        
+        // No considerar casillas en la cruz para movimientos normales
+        if (cell.isInCross) {
+            continue;
+        }
+        
+        // CORRECCIÓN: Mejorar la comparación de colores para incluir correctamente el verde
+        const colorMatch = 
+            cell.symbolColor === boardColor || 
+            (boardColor === 'red' && cell.symbolColor === 'pink') ||
+            (boardColor === 'green' && cell.symbolColor === 'green') ||
+            (boardColor === 'yellow' && cell.symbolColor === 'yellow') ||
+            (boardColor === 'blue' && cell.symbolColor === 'blue');
+        if (cell.hasSymbol && cell.planet === planet && colorMatch) {
+            // Solo considerar casillas que están en líneas definidas
+            if (cell.lineName) {
+                matchingCells.push(cell);
+                debug(`Celda coincidente encontrada en (${cell.row}, ${cell.col}) - ${cell.lineName}`);
+            }
+        }
+    }
+    
+    debug(`Encontradas ${matchingCells.length} celdas coincidentes para movimientos normales`);
+    
+    // 3. Comprobar si puede sacar una ficha de casa
+    if (currentPlayer.piecesInHouse > 0) {
+        // Solo permitir salir a líneas iniciales específicas para el jugador
+        const startLines = playerStartLines[currentPlayerIdx];
+        
+        for (const cell of matchingCells) {
+            if (startLines.includes(cell.lineName)) {
+                // Verificar que no hay ficha del mismo jugador en la posición
+                const isOccupiedBySamePlayer = gameState.pieces.some(p => 
+                    p.player === currentPlayerIdx && 
+                    p.row === cell.row && 
+                    p.col === cell.col);
+                
+                if (!isOccupiedBySamePlayer) {
+                    gameState.possibleMoves.push({
+                        type: 'fromHouse',
+                        targetRow: cell.row,
+                        targetCol: cell.col,
+                        targetLine: cell.lineName
+                    });
+                    
+                    debug(`Movimiento posible desde casa a (${cell.row}, ${cell.col})`);
+                }
+            }
+        }
+    }
+    
+    // 4. Comprobar movimientos normales para fichas en el tablero
+    for (const piece of gameState.pieces) {
+        // Solo considerar fichas del jugador actual que no estén en la cruz
+        if (piece.player === currentPlayerIdx && !piece.inCross) {
+            
+            const currentCell = gameState.board.find(c => c.row === piece.row && c.col === piece.col);
+            
+            debug(`Evaluando posibles movimientos para ficha en (${piece.row}, ${piece.col})`);
+            
+            // Solo considerar fichas que están en líneas definidas
+            if (currentCell && currentCell.lineName) {
+                for (const targetCell of matchingCells) {
+                    // CORRECCIÓN CLAVE: Verificar líneas conectadas y que no sea línea posterior
+                    if (areLinesConnected(currentCell.lineName, targetCell.lineName) && 
+                        !isLineInSameDirection(currentCell.lineName, targetCell.lineName)) {
+                        
+                        // Comprobar que no hay ficha del mismo jugador en la posición
+                        const isOccupiedBySamePlayer = gameState.pieces.some(p => 
+                            p.player === currentPlayerIdx && 
+                            p.row === targetCell.row && 
+                            p.col === targetCell.col);
+                        
+                        if (!isOccupiedBySamePlayer) {
+                            gameState.possibleMoves.push({
+                                type: 'normal',
+                                pieceId: piece.id,
+                                currentRow: piece.row,
+                                currentCol: piece.col,
+                                targetRow: targetCell.row,
+                                targetCol: targetCell.col,
+                                currentLine: currentCell.lineName,
+                                targetLine: targetCell.lineName,
+                                isCrossMove: false
+                            });
+                            
+                            debug(`Movimiento posible de (${piece.row}, ${piece.col}) a (${targetCell.row}, ${targetCell.col}) - Normal`);
+                        }
+                    } else if (currentCell.lineName === targetCell.lineName) {
+                        // Si es la misma línea, permitir el movimiento
+                        // Comprobar que no hay ficha del mismo jugador en la posición
+                        const isOccupiedBySamePlayer = gameState.pieces.some(p => 
+                            p.player === currentPlayerIdx && 
+                            p.row === targetCell.row && 
+                            p.col === targetCell.col);
+                        
+                        if (!isOccupiedBySamePlayer) {
+                            gameState.possibleMoves.push({
+                                type: 'normal',
+                                pieceId: piece.id,
+                                currentRow: piece.row,
+                                currentCol: piece.col,
+                                targetRow: targetCell.row,
+                                targetCol: targetCell.col,
+                                currentLine: currentCell.lineName,
+                                targetLine: targetCell.lineName,
+                                isCrossMove: false
+                            });
+                            
+                            debug(`Movimiento posible de (${piece.row}, ${piece.col}) a (${targetCell.row}, ${targetCell.col}) - Misma línea`);
+                        }
+                    } else {
+                        debug(`Movimiento no permitido de ${currentCell.lineName} a ${targetCell.lineName}`);
+                    }
+                }
+            }
+        }
+    }
+    
+    // Filtro MEJORADO: Eliminar cualquier movimiento a la cruz que no esté marcado explícitamente como crossMove
+    const filteredMoves = [];
+    for (const move of gameState.possibleMoves) {
+        const targetCell = gameState.board.find(c => c.row === move.targetRow && c.col === move.targetCol);
+        
+        // Si el destino está en la cruz pero no es un movimiento de cruz válido, excluirlo
+        if (targetCell && targetCell.isInCross && (!move.isCrossMove)) {
+            debug(`Filtrando movimiento no válido a cruz: (${move.targetRow}, ${move.targetCol})`);
+            continue;
+        }
+        
+        // Añadir movimientos válidos
+        filteredMoves.push(move);
+    }
+    
+    // Actualizar los movimientos posibles con la lista filtrada
+    gameState.possibleMoves = filteredMoves;
+    
+    debug(`Total movimientos posibles después de filtrado: ${gameState.possibleMoves.length}`);
+    for (const move of gameState.possibleMoves) {
+        if (move.isCrossMove) {
+            debug(`Movimiento a cruz: Ficha ${move.pieceId} de (${move.currentRow}, ${move.currentCol}) a (${move.targetRow}, ${move.targetCol}) - Planeta ${move.crossPlanet}`);
+        } else if (move.type === 'fromHouse') {
+            debug(`Movimiento desde casa a (${move.targetRow}, ${move.targetCol})`);
+        } else {
+            debug(`Movimiento normal: Ficha ${move.pieceId} de (${move.currentRow}, ${move.currentCol}) a (${move.targetRow}, ${move.targetCol})`);
+        }
+    }
+}
+
+        // Resaltar los movimientos posibles para una ficha específica
+        function highlightPossibleMovesForPiece(piece) {
+            clearHighlights();
+            
+            // Filtrar solo los movimientos para la ficha seleccionada
+            const pieceMoves = gameState.possibleMoves.filter(m => m.pieceId === piece.id);
+            
+            debug(`Resaltando ${pieceMoves.length} movimientos posibles para ficha ${piece.id}`);
+            
+            // Resaltar cada movimiento posible
+            pieceMoves.forEach(move => {
+                const targetCell = gameState.board.find(c => c.row === move.targetRow && c.col === move.targetCol);
+                
+                // Si es un movimiento a la cruz, verificar que sea válido
+                if (targetCell && targetCell.isInCross) {
+                    // Si no es un movimiento a la cruz, ignorarlo
+                    if (!move.isCrossMove) {
+                        debug(`Ignorando resaltado de movimiento a cruz no válido: (${move.targetRow}, ${move.targetCol})`);
+                        return;
+                    }
+                    
+                    // Verificar que coincida con el planeta
+                    if (move.crossPlanet) {
+                        const currentPlayerIdx = gameState.activePlayerIndices[gameState.currentPlayer];
+                        const expectedPosition = findCrossPlanetPosition(move.crossPlanet, currentPlayerIdx);
+                        
+                        if (!expectedPosition || 
+                            expectedPosition.row !== move.targetRow || 
+                            expectedPosition.col !== move.targetCol) {
+                            debug(`Ignorando resaltado de movimiento a cruz con planeta incorrecto: (${move.targetRow}, ${move.targetCol})`);
+                            return;
+                        }
+                    }
+                }
+                
+                const cell = document.querySelector(`.cell[data-row="${move.targetRow}"][data-col="${move.targetCol}"]`);
+                if (cell) {
+                    cell.classList.add('highlight-move');
+                }
+            });
+        }
+        
+        // Manejar clic en una celda
+        function handleCellClick(row, col) {
+            // Solo permitir clics si es el turno del jugador humano
+            const currentPlayerIdx = gameState.activePlayerIndices[gameState.currentPlayer];
+            const currentPlayer = gameState.players[currentPlayerIdx];
+            // En handleCellClick, añadir esta verificación antes de las demás
+            // Si se ha seleccionado una casa y se hace clic en un destino válido
+// En handleCellClick, dentro del bloque donde se maneja la selección de casa
+if (gameState.houseSelected) {
+    const moveFromHouse = gameState.possibleMoves.find(m => 
+        m.type === 'fromHouse' && 
+        m.targetRow === row && 
+        m.targetCol === col
+    );
+    
+                if (moveFromHouse) {
+                    // Colocar nueva ficha
+                    placeNewPiece(row, col);
+                    
+                    // Actualizar controles
+                    document.getElementById('roll-dice').disabled = false;
+                    document.getElementById('move-piece').disabled = true;
+                    document.getElementById('skip-turn').disabled = true;
+                    
+                    // Limpiar selección de casa
+                    const symbolDiv = document.querySelector('.selected-house');
+                    if (symbolDiv) {
+                        symbolDiv.classList.remove('selected-house');
+                    }
+                    
+                    // Limpiar estado
+                    gameState.houseSelected = false;
+                    clearHighlights();
+                    gameState.selectionMode = false; // Asegurarse de que se desactiva el modo de selección
+                    
+                    // Verificar si ha ganado
+                    checkForWin();
+                    
+                    // Pasar al siguiente jugador si no ha ganado
+                    if (!gameState.gameOver) {
+                        nextTurn(); // Asegurarse de que se llama a nextTurn()
+                    }
+                    return;
+                } else {
+                    // Si se hace clic en algún lugar que no es un destino válido,
+                    // cancelar la selección de casa
+                    clearHighlights();
+                    gameState.houseSelected = false;
+                    logMessage("Selección de casa cancelada. Selecciona otra acción.");
+                    return;
+                }
+            }
+                        
+            if (currentPlayer.ai) {
+                return;
+            }
+            
+            debug(`Clic en celda (${row}, ${col}), modo selección: ${gameState.selectionMode}, ficha seleccionada: ${gameState.selectedPiece !== null}`);
+            
+            // Si no hay resultado del dado, no hacer nada
+            if (!gameState.diceResult) {
+                return;
+            }
+            
+            // Buscar información de la celda clicada
+            const cell = gameState.board.find(c => c.row === row && c.col === col);
+            
+            // Verificar si la casilla clicada es parte de la cruz
+            if (cell && cell.isInCross && gameState.selectedPiece) {
+                // Verificar si la ficha seleccionada está en posición para entrar a la cruz
+                const isReadyForCross = isPositionReadyForCross(
+                    gameState.selectedPiece.row, 
+                    gameState.selectedPiece.col, 
+                    currentPlayerIdx
+                );
+                
+                if (!isReadyForCross) {
+                    // Si la ficha no está en posición final, mostrar mensaje de error
+                    logMessage("No puedes mover a la cruz directamente. Primero debes posicionar tu ficha en la fila/columna adyacente a tu zona de cruz.");
+                    return;
+                }
+                
+                // Verificar si el planeta del dado coincide con la posición en la cruz
+                const basePlanet = gameState.diceResult.planet.split('_')[0];
+                const expectedPosition = findCrossPlanetPosition(basePlanet, currentPlayerIdx);
+                
+                if (!expectedPosition || expectedPosition.row !== row || expectedPosition.col !== col) {
+                    debug(`Movimiento a cruz inválido: planeta ${basePlanet} no coincide con posición (${row}, ${col})`);
+                    if (expectedPosition) {
+                        logMessage(`Para el planeta ${basePlanet}, la posición correcta en la cruz es (${expectedPosition.row}, ${expectedPosition.col}).`);
+                    } else {
+                        logMessage(`El planeta ${basePlanet} no tiene una posición válida en la cruz.`);
+                    }
+                    return;
+                }
+                
+                // Verificar si existe un movimiento explícito a la cruz para esta ficha y posición
+                const validCrossMove = gameState.possibleMoves.some(m => 
+                    m.pieceId === gameState.selectedPiece.id && 
+                    m.targetRow === row && 
+                    m.targetCol === col && 
+                    m.isCrossMove === true);
+                
+                if (!validCrossMove) {
+                    debug(`No se encontró movimiento explícito a cruz para ficha ${gameState.selectedPiece.id} a (${row}, ${col})`);
+                    logMessage("Movimiento a la cruz no válido según las reglas del juego.");
+                    return;
+                }
+                
+                debug(`Verificación PASADA: Movimiento válido a cruz con ${basePlanet}`);
+            }
+            
+            // Buscar si hay una ficha en la posición clicada
+            const clickedPiece = gameState.pieces.find(p => 
+                p.player === currentPlayerIdx && 
+                p.row === row && 
+                p.col === col && 
+                !p.inCross
+            );
+            
+            // NUEVA FUNCIONALIDAD: Si hay una ficha seleccionada y se hace clic en otra ficha propia, cambiar la selección
+            if (gameState.selectedPiece && clickedPiece && gameState.selectedPiece.id !== clickedPiece.id) {
+                // Quitar resaltado de la ficha anterior
+                const oldPieceElement = document.getElementById(gameState.selectedPiece.id);
+                if (oldPieceElement) {
+                    oldPieceElement.classList.remove('selected-piece');
+                }
+                
+                // Seleccionar la nueva ficha
+                gameState.selectedPiece = clickedPiece;
+                
+                // Verificar si la nueva ficha tiene movimientos válidos
+                const hasValidMoves = gameState.possibleMoves.some(m => 
+                    m.type === 'normal' && 
+                    m.pieceId === clickedPiece.id
+                );
+                
+                if (hasValidMoves) {
+                    // Mostrar movimientos posibles para la nueva ficha
+                    highlightPossibleMovesForPiece(clickedPiece);
+                    logMessage(`Ficha seleccionada en (${row}, ${col}). Haz clic en una casilla resaltada para moverla.`);
+                    
+                    // Añadir clase visual a la nueva ficha seleccionada
+                    const newPieceElement = document.getElementById(clickedPiece.id);
+                    if (newPieceElement) {
+                        newPieceElement.classList.add('selected-piece');
+                    }
+                } else {
+                    logMessage(`Esta ficha no tiene movimientos válidos. Selecciona otra.`);
+                    gameState.selectedPiece = null;
+                    clearHighlights();
+                    highlightMovablePieces();
+                }
+                return;
+            }
+            
+            // NUEVA FUNCIONALIDAD: Si la ficha clicada es la misma que ya está seleccionada, deseleccionarla
+            if (gameState.selectedPiece && clickedPiece && gameState.selectedPiece.id === clickedPiece.id) {
+                // Quitar resaltado y deseleccionar
+                const pieceElement = document.getElementById(clickedPiece.id);
+                if (pieceElement) {
+                    pieceElement.classList.remove('selected-piece');
+                }
+                
+                gameState.selectedPiece = null;
+                clearHighlights();
+                
+                // Mostrar todas las fichas movibles
+                gameState.selectionMode = true;
+                highlightMovablePieces();
+                logMessage(`Ficha deseleccionada. Selecciona una ficha para mover.`);
+                return;
+            }
+            
+            // Si estamos en modo selección o se ha clicado en una ficha
+            if (gameState.selectionMode || clickedPiece) {
+                // Si se ha clicado en una ficha propia
+                if (clickedPiece) {
+                    // Seleccionar esta ficha y mostrar sus posibles movimientos
+                    gameState.selectedPiece = clickedPiece;
+                    gameState.selectionMode = false; // Salir del modo selección
+                    
+                    // Verificar si la ficha tiene movimientos válidos
+                    const hasValidMoves = gameState.possibleMoves.some(m => 
+                        m.type === 'normal' && 
+                        m.pieceId === clickedPiece.id
+                    );
+                    
+                    if (hasValidMoves) {
+                        highlightPossibleMovesForPiece(clickedPiece);
+                        logMessage(`Ficha seleccionada en (${row}, ${col}). Haz clic en una casilla resaltada para moverla.`);
+                        debug(`Ficha ${clickedPiece.id} seleccionada, tiene ${gameState.possibleMoves.filter(m => m.pieceId === clickedPiece.id).length} movimientos posibles`);
+                        
+                        // Añadir clase visual a la ficha seleccionada
+                        const pieceElement = document.getElementById(clickedPiece.id);
+                        if (pieceElement) {
+                            pieceElement.classList.add('selected-piece');
+                        }
+                        
+                        return;
+                    } else {
+                        logMessage(`Esta ficha no tiene movimientos válidos.`);
+                        gameState.selectedPiece = null;
+                        clearHighlights();
+                        highlightMovablePieces();
+                        gameState.selectionMode = true;
+                        return;
+                    }
+                } else {
+                    // No se ha seleccionado una ficha válida, mantener el modo selección
+                    logMessage("Selecciona una de tus fichas para mover.");
+                    return;
+                }
+            }
+            
+            // Si hay una ficha seleccionada, comprobar si el destino es válido
+            if (gameState.selectedPiece) {
+                const validMove = gameState.possibleMoves.find(m => 
+                    m.pieceId === gameState.selectedPiece.id && 
+                    m.targetRow === row && 
+                    m.targetCol === col
+                );
+                
+                if (validMove) {
+                    // Quitar clase visual de la ficha seleccionada
+                    const pieceElement = document.getElementById(gameState.selectedPiece.id);
+                    if (pieceElement) {
+                        pieceElement.classList.remove('selected-piece');
+                    }
+                    
+                    // Realizar el movimiento
+                    movePiece(gameState.selectedPiece.id, row, col);
+                    
+                    // Actualizar controles
+                    document.getElementById('roll-dice').disabled = false;
+                    document.getElementById('move-piece').disabled = true;
+                    document.getElementById('skip-turn').disabled = true;
+                    
+                    // Limpiar resaltados y selección
+                    clearHighlights();
+                    gameState.selectedPiece = null;
+                    
+                    // Verificar si ha ganado
+                    checkForWin();
+                    
+                    // Pasar al siguiente jugador si no ha ganado
+                    if (!gameState.gameOver) {
+                        nextTurn();
+                    }
+                    return;
+                } else {
+                    // Clic en una celda no válida con una ficha seleccionada
+                    // Cancelar la selección y mostrar todas las fichas movibles
+                    logMessage("Destino no válido. Selecciona otra ficha o un destino válido.");
+                    
+                    // Quitar clase visual de la ficha seleccionada
+                    const pieceElement = document.getElementById(gameState.selectedPiece.id);
+                    if (pieceElement) {
+                        pieceElement.classList.remove('selected-piece');
+                    }
+                    
+                    gameState.selectedPiece = null;
+                    clearHighlights();
+                    gameState.selectionMode = true;
+                    highlightMovablePieces();
+                    return;
+                }
+            }
+            
+            // Si no se está en modo selección ni hay ficha seleccionada, comprobar si es un destino válido para salir de casa
+            const moveFromHouse = gameState.possibleMoves.find(m => 
+                m.type === 'fromHouse' && 
+                m.targetRow === row && 
+                m.targetCol === col
+            );
+            
+            if (moveFromHouse) {
+                placeNewPiece(row, col);
+                
+                // Actualizar controles
+                document.getElementById('roll-dice').disabled = false;
+                document.getElementById('move-piece').disabled = true;
+                document.getElementById('skip-turn').disabled = true;
+                
+                // Limpiar resaltados
+                clearHighlights();
+                gameState.selectedPiece = null;
+                
+                // Verificar si ha ganado
+                checkForWin();
+                
+                // Pasar al siguiente jugador si no ha ganado
+                if (!gameState.gameOver) {
+                    nextTurn();
+                }
+                return;
+            }
+            
+            // Si llegamos aquí, el movimiento no es válido
+            logMessage("Movimiento no válido. Selecciona una ficha o una casilla resaltada.");
+        }
+        
+        // Función para manejar clics en los símbolos de las casas
+        function handleHouseSymbolClick(playerIndex) {
+            // Solo permitir seleccionar casa del jugador actual
+            const currentPlayerIdx = gameState.activePlayerIndices[gameState.currentPlayer];
+            if (playerIndex !== currentPlayerIdx) {
+                logMessage("Solo puedes seleccionar fichas de tu propia casa.");
+                return;
+            }
+            
+            // Verificar si es el turno del jugador humano
+            const currentPlayer = gameState.players[currentPlayerIdx];
+            if (currentPlayer.ai) {
+                return;
+            }
+            
+            // Verificar si se ha tirado el dado
+            if (!gameState.diceResult) {
+                logMessage("Primero debes tirar el dado.");
+                return;
+            }
+            
+            // Verificar si hay fichas en casa
+            if (currentPlayer.piecesInHouse <= 0) {
+                logMessage("No tienes fichas en casa.");
+                return;
+            }
+            
+            // Verificar si hay movimientos posibles desde casa
+            const fromHouseMoves = gameState.possibleMoves.filter(m => m.type === 'fromHouse');
+            if (fromHouseMoves.length === 0) {
+                logMessage("No hay movimientos posibles desde casa con el dado actual.");
+                return;
+            }
+            
+            // Limpiar cualquier selección previa
+            clearHighlights();
+            gameState.selectedPiece = null;
+            
+            // Resaltar los destinos posibles
+            for (const move of fromHouseMoves) {
+                const cell = document.querySelector(`.cell[data-row="${move.targetRow}"][data-col="${move.targetCol}"]`);
+                if (cell) {
+                    cell.classList.add('highlight-move');
+                }
+            }
+            
+            // Indicar visualmente que se ha seleccionado la casa
+            const symbolDiv = document.querySelector(`.house-symbol[data-house="${playerIndex}"]`);
+            if (symbolDiv) {
+                symbolDiv.classList.add('selected-house');
+            }
+            
+            // Activar modo de casa seleccionada
+            gameState.houseSelected = true;
+            
+            logMessage("Casa seleccionada. Haz clic en una casilla resaltada para colocar tu ficha.");
+        }
+
+        // Colocar una nueva ficha desde la casa
+        function placeNewPiece(row, col) {
+            const currentPlayerIdx = gameState.activePlayerIndices[gameState.currentPlayer];
+            const currentPlayer = gameState.players[currentPlayerIdx];
+            
+            debug(`Colocando nueva ficha en (${row}, ${col}) para jugador ${currentPlayerIdx}`);
+            
+            // Crear nueva ficha en el DOM
+            const boardDiv = document.getElementById('board');
+            const cellDiv = boardDiv.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+            
+            const pieceDiv = document.createElement('div');
+            pieceDiv.className = `piece ${currentPlayer.color}`;
+            
+            const pieceId = `piece-${currentPlayer.color}-${Date.now()}`;
+            pieceDiv.id = pieceId;
+            
+            cellDiv.appendChild(pieceDiv);
+            
+            // Verificar si la casilla destino es parte de la cruz
+            const cell = gameState.board.find(c => c.row === row && c.col === col);
+            const isInCross = cell && cell.isInCross;
+            
+            // Actualizar estado del juego
+            const newPiece = {
+                id: pieceId,
+                player: currentPlayerIdx,
+                row,
+                col,
+                inCross: isInCross
+            };
+            
+            gameState.pieces.push(newPiece);
+            
+            // Actualizar estado del jugador
+            currentPlayer.piecesInHouse--;
+            
+            if (isInCross) {
+                currentPlayer.piecesInCross++;
+            }
+            
+            // Actualizar las casas en el DOM
+            updateHousesDisplay();
+            
+            // Comprobar si hay alguna ficha para comer
+            checkForCapturing(row, col);
+            
+            // Log
+            logMessage(`${currentPlayer.name} ha sacado una ficha de casa a la posición (${row}, ${col}).`);
+        }
+        
+        // Mover una ficha
+        function movePiece(pieceId, targetRow, targetCol) {
+            // Encontrar la ficha
+            const pieceIndex = gameState.pieces.findIndex(p => p.id === pieceId);
+            if (pieceIndex === -1) {
+                debug(`Error: No se encontró la ficha con ID ${pieceId}`);
+                return;
+            }
+            
+            const piece = gameState.pieces[pieceIndex];
+            const currentPlayerIdx = gameState.activePlayerIndices[gameState.currentPlayer];
+            const currentPlayer = gameState.players[currentPlayerIdx];
+            
+            debug(`Moviendo ficha ${pieceId} de (${piece.row}, ${piece.col}) a (${targetRow}, ${targetCol})`);
+            
+            // Comprobar si es un movimiento a la cruz desde la posición final
+            const isMoveToCross = isPositionReadyForCross(piece.row, piece.col, currentPlayerIdx) &&
+                                 gameState.board.find(c => c.row === targetRow && c.col === targetCol)?.isInCross;
+            
+            // Actualizar posición en el DOM
+            const pieceDiv = document.getElementById(pieceId);
+            if (!pieceDiv) {
+                debug(`Error: No se encontró el elemento DOM para la ficha ${pieceId}`);
+                return;
+            }
+            
+            const oldCellDiv = document.querySelector(`[data-row="${piece.row}"][data-col="${piece.col}"]`);
+            const newCellDiv = document.querySelector(`[data-row="${targetRow}"][data-col="${targetCol}"]`);
+            
+            if (!oldCellDiv || !newCellDiv) {
+                debug(`Error: No se encontraron las celdas para el movimiento`);
+                return;
+            }
+            
+            oldCellDiv.removeChild(pieceDiv);
+            newCellDiv.appendChild(pieceDiv);
+            
+            // Verificar si la casilla destino es parte de la cruz
+            const targetCell = gameState.board.find(c => c.row === targetRow && c.col === targetCol);
+            
+            // Actualizar estado del juego
+            piece.row = targetRow;
+            piece.col = targetCol;
+            
+            // Si el movimiento es a la cruz, marcar la ficha como inCross
+            if (isMoveToCross) {
+                piece.inCross = true;
+                currentPlayer.piecesInCross++;
+                debug(`Ficha ha entrado en la cruz del jugador ${currentPlayerIdx} (movimiento especial)`);
+                logMessage(`${currentPlayer.name} ha colocado una ficha en su cruz (${targetRow}, ${targetCol}).`);
+            } 
+            // Verificar si la ficha ha llegado a la cruz por un movimiento normal
+            else if (targetCell && targetCell.isInCross && !piece.inCross) {
+                // Solo si es la cruz del jugador actual
+                if (targetCell.crossColor === currentPlayer.crossZone) {
+                    piece.inCross = true;
+                    currentPlayer.piecesInCross++;
+                    debug(`Ficha ha entrado en la cruz del jugador ${currentPlayerIdx}`);
+                    logMessage(`${currentPlayer.name} ha colocado una ficha en su cruz (${targetRow}, ${targetCol}).`);
+                }
+            }
+            
+            // Comprobar si hay alguna ficha para comer (solo si no es un movimiento a la cruz)
+            if (!isMoveToCross) {
+                checkForCapturing(targetRow, targetCol);
+            }
+            
+            // Log si no es movimiento a cruz (ya se hizo log arriba para ese caso)
+            if (!isMoveToCross && (!targetCell || !targetCell.isInCross)) {
+                logMessage(`${currentPlayer.name} ha movido una ficha a la posición (${targetRow}, ${targetCol}).`);
+            }
+        }
+        
+        // Comprobar si hay fichas para comer
+// Comprobar si hay fichas para comer
+function checkForCapturing(row, col) {
+    // Si la ficha está en la cruz, no puede comer ni ser comida
+    const cell = gameState.board.find(c => c.row === row && c.col === col);
+    if (cell && cell.isInCross) {
+        return;
+    }
+    
+    const currentPlayerIdx = gameState.activePlayerIndices[gameState.currentPlayer];
+    debug(`Comprobando si hay fichas para comer en (${row}, ${col})`);
+    
+    // Verificar si estamos en las dos últimas filas antes de la cruz para cada jugador
+    const isInLastTwoRows = isInLastTwoRowsBeforeCross(row, col, currentPlayerIdx);
+    
+    // Obtener todas las fichas en esta posición que no son del jugador actual
+    const pieces = gameState.pieces.filter(p => 
+        p.row === row && p.col === col && 
+        p.player !== currentPlayerIdx);
+    
+    // Verificar si alguna ficha está en una casilla segura
+    let safeSpotOccupied = false;
+    for (const piece of pieces) {
+        const isSafeSpot = !isInLastTwoRows && isPlanetSafeForPlayer(cell.planet, piece.player);
+        if (isSafeSpot) {
+            safeSpotOccupied = true;
+            debug(`Ficha de jugador ${piece.player} está en casilla segura (${cell.planet}), no puede ser comida`);
+            // Si hay una ficha en casilla segura, no podemos colocar nuestra ficha aquí
+            // Devolvemos inmediatamente sin hacer cambios
+            return;
+        }
+    }
+    
+    // Si no hay fichas en casillas seguras, procedemos normalmente a comer las fichas
+    if (pieces.length > 0 && !safeSpotOccupied) {
+        debug(`Se encontraron ${pieces.length} fichas para comer`);
+        
+        for (const piece of pieces) {
+            // Eliminar la ficha del DOM
+            const pieceDiv = document.getElementById(piece.id);
+            if (pieceDiv) {
+                const cellDiv = pieceDiv.parentNode;
+                cellDiv.removeChild(pieceDiv);
+            }
+            
+            // Actualizar estado del jugador
+            const capturedPlayer = gameState.players[piece.player];
+            capturedPlayer.piecesInHouse++;
+            
+            // Si la ficha estaba en la cruz, actualizar contador
+            if (piece.inCross) {
+                capturedPlayer.piecesInCross--;
+            }
+            
+            // Log
+            logMessage(`${gameState.players[currentPlayerIdx].name} ha comido una ficha de ${capturedPlayer.name}.`);
+        }
+        
+        // Eliminar las fichas del estado del juego
+        gameState.pieces = gameState.pieces.filter(p => 
+            !(p.row === row && p.col === col && p.player !== currentPlayerIdx));
+        
+        // Actualizar las casas en el DOM
+        updateHousesDisplay();
+    }
+}
+        
+        // Verificar si un jugador ha ganado
+        function checkForWin() {
+            const currentPlayerIdx = gameState.activePlayerIndices[gameState.currentPlayer];
+            const currentPlayer = gameState.players[currentPlayerIdx];
+            
+            debug(`Verificando si el jugador ${currentPlayerIdx} ha ganado (${currentPlayer.piecesInCross}/6)`);
+            
+            // Verificar que tiene 6 fichas en la cruz
+            if (currentPlayer.piecesInCross >= 6) {
+                gameState.gameOver = true;
+                logMessage(`¡${currentPlayer.name} ha ganado la partida!`);
+                
+                // Desactivar controles
+                document.getElementById('roll-dice').disabled = true;
+                document.getElementById('move-piece').disabled = true;
+                document.getElementById('skip-turn').disabled = true;
+                
+                // Mostrar mensaje de victoria
+                alert(`¡${currentPlayer.name} ha ganado la partida!`);
+            }
+        }
+        
+        // Actualizar visualización de las casas
+        function updateHousesDisplay() {
+            const playerInfoDivs = document.querySelectorAll('.player-info');
+            
+            for (let i = 0; i < gameState.activePlayerIndices.length; i++) {
+                const playerIdx = gameState.activePlayerIndices[i];
+                const player = gameState.players[playerIdx];
+                const houseDiv = playerInfoDivs[i].querySelector('.houses');
+                
+                // Actualizar piezas en casa
+                houseDiv.innerHTML = '';
+                for (let j = 0; j < player.piecesInHouse; j++) {
+                    const housePiece = document.createElement('div');
+                    housePiece.className = `house-piece ${player.color}`;
+                    houseDiv.appendChild(housePiece);
+                }
+            }
+        }
+        
+// Verificar si un planeta es seguro para un jugador específico
+function isPlanetSafeForPlayer(planet, playerIdx) {
+    // Si no hay safe spots definidos para el jugador, no hay casillas seguras
+    if (!safeSpots[playerIdx]) return false;
+    
+    // Comprobar si el planeta coincide con alguna casilla segura del jugador
+    return safeSpots[playerIdx].some(spot => spot.planet === planet);
+}
+
+// Verificar si una posición está en las dos últimas filas antes de la cruz
+function isInLastTwoRowsBeforeCross(row, col, playerIdx) {
+    // Verde (jugador 0): filas 11 y 12 cerca de la cruz vertical
+    if (playerIdx === 0) {
+        return (col === 6 || col === 8) && (row === 11 || row === 12);
+    }
+    // Azul (jugador 1): columnas 11 y 12 cerca de la cruz horizontal
+    else if (playerIdx === 1) {
+        return (row === 6 || row === 8) && (col === 11 || col === 12);
+    }
+    // Rosa (jugador 2): filas 2 y 3 cerca de la cruz vertical
+    else if (playerIdx === 2) {
+        return (col === 6 || col === 8) && (row === 2 || row === 3);
+    }
+    // Amarillo (jugador 3): columnas 2 y 3 cerca de la cruz horizontal 
+    else if (playerIdx === 3) {
+        return (row === 6 || row === 8) && (col === 2 || col === 3);
+    }
+    return false;
+}
+
+        // Pasar al siguiente jugador
+        function nextTurn() {
+            debug(`Pasando al siguiente jugador desde ${gameState.currentPlayer}`);
+            
+            // Reiniciar estado del dado
+            gameState.diceResult = null;
+            gameState.possibleMoves = [];
+            
+            // Limpiar información del elemento
+            document.getElementById('element-info').textContent = '';
+            document.getElementById('dice-result').textContent = '';
+            document.getElementById('dice-result').className = 'dice-result';
+            
+            // Actualizar indicador visual del jugador activo
+            const playerInfoDivs = document.querySelectorAll('.player-info');
+            playerInfoDivs[gameState.currentPlayer].classList.remove('active');
+            
+            // Encontrar el siguiente jugador en el orden circular
+            gameState.currentPlayer = (gameState.currentPlayer + 1) % gameState.activePlayerIndices.length;
+            
+            playerInfoDivs[gameState.currentPlayer].classList.add('active');
+            
+            // Obtener el índice real del jugador actual
+            const currentPlayerIdx = gameState.activePlayerIndices[gameState.currentPlayer];
+            
+            // Log
+            logMessage(`Turno de ${gameState.players[currentPlayerIdx].name}.`);
+            
+            // Limpiar selecciones previas
+            clearHighlights();
+            gameState.selectionMode = false;
+            gameState.selectedPiece = null;
+            
+            // Habilitar botón de tirar dado
+            document.getElementById('roll-dice').disabled = false;
+            document.getElementById('move-piece').disabled = true;
+            document.getElementById('skip-turn').disabled = true;
+            
+            // Si es IA, jugar automáticamente después de un breve retraso
+            if (gameState.players[currentPlayerIdx].ai && !gameState.gameOver) {
+                setTimeout(() => {
+                    document.getElementById('roll-dice').click();
+                }, 1000);
+            }
+        }
+        
+        // Jugar turno de IA
+        function playAITurn() {
+            // Si no hay movimientos posibles, pasar al siguiente jugador
+            if (gameState.possibleMoves.length === 0) {
+                setTimeout(() => {
+                    nextTurn();
+                }, 1000);
+                return;
+            }
+            
+            const currentPlayerIdx = gameState.activePlayerIndices[gameState.currentPlayer];
+            debug(`IA jugando turno (jugador ${currentPlayerIdx})`);
+            
+            // Estrategia de la IA: priorizar movimientos a la cruz, luego comer, luego mover
+            let selectedMove = null;
+            
+            // 1. Priorizar mover a la cruz
+            const crossMoves = gameState.possibleMoves.filter(move => 
+                move.isCrossMove === true && move.crossPlanet);
+            
+            if (crossMoves.length > 0) {
+                // Verificar que cada movimiento a la cruz sea válido
+                const validCrossMoves = crossMoves.filter(move => {
+                    const expectedPosition = findCrossPlanetPosition(
+                        move.crossPlanet, 
+                        currentPlayerIdx
+                    );
+                    
+                    return expectedPosition && 
+                           expectedPosition.row === move.targetRow && 
+                           expectedPosition.col === move.targetCol;
+                });
+                
+                if (validCrossMoves.length > 0) {
+                    selectedMove = validCrossMoves[Math.floor(Math.random() * validCrossMoves.length)];
+                    debug(`IA seleccionó movimiento a la cruz con planeta ${selectedMove.crossPlanet}`);
+                }
+            }
+            // 2. Priorizar comer fichas enemigas
+            else {
+                const capturingMoves = [];
+                
+                for (const move of gameState.possibleMoves) {
+                    // Para movimientos a la cruz, verificar que coincidan con el planeta
+                    if (move.isCrossMove) {
+                        const expectedPosition = findCrossPlanetPosition(
+                            move.crossPlanet, 
+                            currentPlayerIdx
+                        );
+                        
+                        if (!expectedPosition || 
+                            expectedPosition.row !== move.targetRow || 
+                            expectedPosition.col !== move.targetCol) {
+                            continue; // Saltar este movimiento a la cruz si no coincide
+                        }
+                    }
+                    
+                    const enemyPieceExists = gameState.pieces.some(p => 
+                        p.row === move.targetRow && 
+                        p.col === move.targetCol && 
+                        p.player !== currentPlayerIdx);
+                    
+                    if (enemyPieceExists) {
+                        capturingMoves.push(move);
+                    }
+                }
+                
+                if (capturingMoves.length > 0) {
+                    selectedMove = capturingMoves[Math.floor(Math.random() * capturingMoves.length)];
+                    debug(`IA seleccionó movimiento para comer`);
+                }
+                // 3. Mover aleatoriamente
+                else {
+                    // Filtrar movimientos a la cruz que no coincidan con el planeta
+                    const validMoves = gameState.possibleMoves.filter(move => {
+                        // Si es un movimiento a la cruz, verificar el planeta
+                        if (move.isCrossMove) {
+                            const expectedPosition = findCrossPlanetPosition(
+                                move.crossPlanet, 
+                                currentPlayerIdx
+                            );
+                            
+                            return expectedPosition && 
+                                   expectedPosition.row === move.targetRow && 
+                                   expectedPosition.col === move.targetCol;
+                        }
+                        
+                        // No es movimiento a la cruz, es válido
+                        return true;
+                    });
+                    
+                    if (validMoves.length > 0) {
+                        selectedMove = validMoves[Math.floor(Math.random() * validMoves.length)];
+                        debug(`IA seleccionó movimiento aleatorio`);
+                    }
+                }
+            }
+            
+            // Ejecutar el movimiento seleccionado
+            if (selectedMove) {
+                debug(`IA ejecutando movimiento: ${JSON.stringify(selectedMove)}`);
+                
+                if (selectedMove.type === 'fromHouse') {
+                    placeNewPiece(selectedMove.targetRow, selectedMove.targetCol);
+                } else {
+                    movePiece(selectedMove.pieceId, selectedMove.targetRow, selectedMove.targetCol);
+                }
+                
+                // Actualizar controles
+                document.getElementById('roll-dice').disabled = false;
+                document.getElementById('move-piece').disabled = true;
+                document.getElementById('skip-turn').disabled = true;
+                
+                // Limpiar resaltados
+                clearHighlights();
+                
+                // Verificar si ha ganado
+                checkForWin();
+                
+                // Pasar al siguiente jugador si no ha ganado
+                if (!gameState.gameOver) {
+                    setTimeout(() => {
+                        nextTurn();
+                    }, 1000);
+                }
+            } else {
+                // Pasar turno si no hay movimiento seleccionado
+                debug(`IA no encontró movimiento válido`);
+                setTimeout(() => {
+                    nextTurn();
+                }, 1000);
+            }
+        }
+        
+        // Función para resaltar fichas que pueden moverse
+        function highlightMovablePieces() {
+            const currentPlayerIdx = gameState.activePlayerIndices[gameState.currentPlayer];
+            debug("Resaltando fichas movibles para el jugador " + currentPlayerIdx);
+            clearHighlights();
+            
+            // Encontrar todas las fichas del jugador actual con movimientos posibles
+            const playerPieces = gameState.pieces.filter(p => 
+                p.player === currentPlayerIdx && !p.inCross);
+            
+            debug(`Encontradas ${playerPieces.length} fichas del jugador en el tablero`);
+            
+            // Para cada ficha, verificar si tiene al menos un movimiento posible
+            let hasMovablePieces = false;
+            
+            for (const piece of playerPieces) {
+                const hasMoves = gameState.possibleMoves.some(m => 
+                    m.type === 'normal' && m.pieceId === piece.id);
+                
+                debug(`Ficha en (${piece.row}, ${piece.col}) tiene movimientos: ${hasMoves}`);
+                
+                if (hasMoves) {
+                    // Resaltar la celda donde está la ficha
+                    const cell = document.querySelector(`.cell[data-row="${piece.row}"][data-col="${piece.col}"]`);
+                    if (cell) {
+                        cell.classList.add('highlight-move');
+                        hasMovablePieces = true;
+                    }
+                }
+            }
+            
+            // Si no hay fichas movibles, mostrar un mensaje
+            if (!hasMovablePieces) {
+                logMessage("No hay fichas que se puedan mover. Intenta sacar una ficha de casa o pasa turno.");
+                
+                // Resaltar posibles movimientos desde casa si existen
+                const houseMovesExist = gameState.possibleMoves.some(m => m.type === 'fromHouse');
+                if (houseMovesExist) {
+                    for (const move of gameState.possibleMoves) {
+                        if (move.type === 'fromHouse') {
+                            const cell = document.querySelector(`.cell[data-row="${move.targetRow}"][data-col="${move.targetCol}"]`);
+                            if (cell) {
+                                cell.classList.add('highlight-move');
+                            }
+                        }
+                    }
+                }
+            }
+            
+            return hasMovablePieces;
+        }
+        
+        // Registrar mensaje en el log
+        function logMessage(message) {
+            const logDiv = document.getElementById('message-log');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.textContent = message;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        // Mostrar información sobre las líneas del tablero
+        function showLineInfo() {
+            logMessage('-----LÍNEAS DEL TABLERO-----');
+            logMessage('Rojo_Humedo (Rosa): Columna 6, Filas 0 a 5');
+            logMessage('Rojo_Seco (Rosa): Fila 6, columnas 0 a 5');
+            logMessage('Amarillo_Humedo (Amarillo): Fila 8, Columnas 0 a 5');
+            logMessage('Amarillo_Seco (Amarillo): Columna 6, Filas de 9 a 14');
+            logMessage('Verde_Humedo (Verde): Columna 8, filas de 9 a 14');
+            logMessage('Verde_Seco (Verde): Fila 8, Columnas de 9 a 14');
+            logMessage('Azul_Humedo (Azul): Fila 6, Columnas de 9 a 14');
+            logMessage('Azul_Seco (Azul): Columna 8, Filas de 0 a 5');
+            logMessage('------------------------');
+            
+            // Mostrar líneas para salir de casa
+            logMessage('-----LÍNEAS INICIALES POR JUGADOR-----');
+            logMessage('Jugador 1 (Verde): ' + playerStartLines[0].join(', '));
+            logMessage('Jugador 2 (Azul): ' + playerStartLines[1].join(', '));
+            logMessage('Jugador 3 (Rosa): ' + playerStartLines[2].join(', '));
+            logMessage('Jugador 4 (Amarillo): ' + playerStartLines[3].join(', '));
+            logMessage('------------------------');
+            
+            // Mostrar reglas de adyacencia
+            logMessage('-----LÍNEAS ADYACENTES-----');
+            for (const [line, adjacents] of Object.entries(adjacentLines)) {
+                logMessage(`${line} conecta con: ${adjacents.join(', ')}`);
+            }
+            
+            // Mostrar restricciones
+            logMessage('-----RESTRICCIONES DE MOVIMIENTO-----');
+            logMessage('- Si una ficha está en Línea Húmeda de su casa, no puede moverse a Línea Seca de la casa anterior.');
+            logMessage('------------------------');
+            
+            // Mostrar información sobre casillas seguras
+            if (gameState.gameMode === 4) {
+                logMessage('-----CASILLAS SEGURAS (Modo 4 jugadores)-----');
+                for (let i = 0; i < 4; i++) {
+                    const colorName = playerInfo[i].colorName;
+                    logMessage(`Jugador ${i+1} (${colorName}): ${safeSpots[i].map(spot => spot.planet).join(', ')}`);
+                }
+                logMessage('IMPORTANTE: En las dos últimas filas antes de la cruz, NO hay casillas seguras');
+                logMessage('------------------------');
+            }
+
+        }
+        
+        // FUNCIONES PARA CONFIGURACIÓN DEL JUEGO
+        
+        // Generar el selector de jugadores basado en el modo seleccionado
+        function generatePlayerSelector() {
+            const playerSelector = document.getElementById('player-selector');
+            playerSelector.innerHTML = '';
+            
+            // Obtener jugadores para el modo seleccionado
+            const players = gameState.activePlayerIndices || gameConfigs[gameState.gameMode];
+            debug(`Generando selector para ${players.length} jugadores en modo ${gameState.gameMode}`);
+            debug(`Jugadores activos: ${players.join(',')}`);
+            
+            // Configurar el ancho de las tarjetas según el número de jugadores
+            const cardWidth = players.length === 2 ? '48%' : '48%';
+            
+            for (const playerIdx of players) {
+                const player = playerInfo[playerIdx];
+                
+                const playerCard = document.createElement('div');
+                playerCard.className = `player-card ${player.color} ${gameState.humanPlayers.includes(playerIdx) ? 'selected' : ''}`;
+                playerCard.dataset.player = playerIdx;
+                playerCard.style.width = cardWidth;
+                
+                playerCard.innerHTML = `
+                    <h3>${player.name} (${player.colorName})</h3>
+                    <div class="player-toggle">
+                        <input type="checkbox" id="player-human-${playerIdx}" 
+                               ${gameState.humanPlayers.includes(playerIdx) ? 'checked' : ''}>
+                        <label for="player-human-${playerIdx}">Jugador Humano</label>
+                    </div>
+                `;
+                
+                // Añadir evento de clic para seleccionar/deseleccionar
+                playerCard.addEventListener('click', () => {
+                    const checkbox = playerCard.querySelector(`#player-human-${playerIdx}`);
+                    checkbox.checked = !checkbox.checked;
+                    
+                    if (checkbox.checked) {
+                        playerCard.classList.add('selected');
+                        if (!gameState.humanPlayers.includes(playerIdx)) {
+                            gameState.humanPlayers.push(playerIdx);
+                        }
+                    } else {
+                        playerCard.classList.remove('selected');
+                        gameState.humanPlayers = gameState.humanPlayers.filter(p => p !== playerIdx);
+                    }
+                    debug(`Jugador ${playerIdx} seleccionado como humano: ${checkbox.checked}`);
+                    debug(`Jugadores humanos actuales: ${gameState.humanPlayers.join(', ')}`);
+                });
+                
+                playerSelector.appendChild(playerCard);
+            }
+        }
+        
+        // Inicializar estado del juego según la configuración
+        function initializeGameState() {
+            // Reiniciar estado
+            gameState.currentPlayer = 0;
+            gameState.players = [];
+            gameState.pieces = [];
+            gameState.diceResult = null;
+            gameState.selectedPiece = null;
+            gameState.possibleMoves = [];
+            gameState.selectionMode = false;
+            gameState.gameOver = false;
+            
+            // Usar los jugadores activos ya configurados (no sobreescribir)
+            debug(`Modo de juego ${gameState.gameMode}`);
+            debug(`Índices de jugadores activos: ${gameState.activePlayerIndices.join(',')}`);
+            debug(`Jugadores humanos: ${gameState.humanPlayers.join(',')}`);
+            
+            // Inicializar jugadores
+            for (let i = 0; i < 4; i++) {
+                const info = playerInfo[i];
+                gameState.players[i] = {
+                    name: info.name,
+                    color: info.color,
+                    colorName: info.colorName,
+                    piecesInHouse: 6,
+                    piecesInCross: 0,
+                    ai: !gameState.humanPlayers.includes(i),
+                    crossZone: info.crossZone,
+                    bgColor: `rgba(${hexToRgb(info.colorHex)}, 0.2)`
+                };
+            }
+            
+            debug(`Juego inicializado con ${gameState.activePlayerIndices.length} jugadores, ${gameState.humanPlayers.length} humanos`);
+        }
+        
+        // Convertir color hexadecimal a RGB
+        function hexToRgb(hex) {
+            // Remover el # si existe
+            hex = hex.replace('#', '');
+            
+            // Convertir a RGB
+            const r = parseInt(hex.substring(0, 2), 16);
+            const g = parseInt(hex.substring(2, 4), 16);
+            const b = parseInt(hex.substring(4, 6), 16);
+            
+            return `${r}, ${g}, ${b}`;
+        }
+        
+        // Iniciar el juego una vez configurado
+        // Iniciar el juego una vez configurado
+        function startGame() {
+            // Ocultar el diálogo de configuración
+            document.getElementById('config-dialog').style.display = 'none';
+            
+            // Inicializar el estado del juego
+            initializeGameState();
+            
+            // Inicializar el tablero
+            initializeBoard();
+            
+            // Inicializar la interfaz de jugadores
+            initializePlayerInfo();
+            
+            // Mostrar mensaje de inicio
+            const messageLog = document.getElementById('message-log');
+            messageLog.innerHTML = '';
+            logMessage(`¡El juego ha comenzado! Modo: ${gameState.gameMode} jugadores.`);
+            logMessage(`Turno de ${gameState.players[gameState.activePlayerIndices[0]].name}.`);
+            
+            // Mostrar reglas
+            logMessage('-----REGLAS DEL JUEGO-----');
+            logMessage('1. Tira el dado para obtener un planeta y un elemento (color).');
+            logMessage('2. Solo puedes mover a casillas con ese planeta y ese color específico.');
+            logMessage('3. Los movimientos pueden ser en la misma línea o líneas adyacentes según las reglas.');
+            logMessage('4. Puedes seleccionar la ficha que quieres mover haciendo clic en ella.');
+            logMessage('5. Si una ficha está en la Línea Húmeda de su casa, no puede moverse a la Línea Seca de la casa anterior.');
+            logMessage('6. Al salir de casa, solo puedes ir a las líneas de tu propio color.');
+            logMessage('7. Para llegar a la cruz, primero debes posicionar tu ficha en la fila/columna adyacente a tu zona.');
+            logMessage('8. Desde esta posición, solo podrás mover a la cruz cuando el dado muestre el planeta específico que');
+            logMessage('   corresponde a cada posición de tu zona, SIN importar el color del planeta.');
+            logMessage('9. Las fichas en la cruz no pueden moverse ni ser comidas.');
+            
+            // Reglas específicas para modo 4 jugadores
+            if (gameState.gameMode === 4) {
+            logMessage('10. Cada jugador tiene 3 casillas seguras donde sus fichas no pueden ser comidas:');
+            logMessage('    - Verde: Sol verde, Mercurio verde y Marte azul');
+            logMessage('    - Azul: Luna azul, Venus verde y Júpiter azul');
+            logMessage('    - Rosa: Sol rosa, Mercurio amarillo y Marte rosa');
+            logMessage('    - Amarillo: Luna amarilla, Venus amarilla y Júpiter rosa');
+            logMessage('11. Si una ficha está en una casilla segura, ninguna otra ficha puede ocupar esa casilla.');
+            logMessage('12. En las dos últimas filas antes de la cruz, NO hay casillas seguras para ningún jugador.');
+            logMessage('13. Para ganar, lleva 6 fichas a tu zona de la cruz.');
+            logMessage('14. El orden de juego depende de los jugadores activos.');
+            } else {
+                logMessage('10. Para ganar, lleva 6 fichas a tu zona de la cruz.');
+                logMessage('11. El orden de juego depende de los jugadores activos.');
+            }
+            logMessage('------------------------');
+            
+            // Mostrar información de las líneas
+            showLineInfo();
+            
+            // Si el primer jugador es IA, hacer su movimiento
+            if (gameState.players[gameState.activePlayerIndices[0]].ai) {
+                setTimeout(() => {
+                    document.getElementById('roll-dice').click();
+                }, 1000);
+            }
+        }
+        
+        // EVENTOS DE LA CONFIGURACIÓN
+        
+        // Evento al cambiar el modo de juego
+        document.getElementById('mode-2').addEventListener('click', function() {
+            debug("Cambiando a modo 2 jugadores");
+            document.getElementById('mode-4').classList.remove('selected');
+            this.classList.add('selected');
+            gameState.gameMode = 2;
+            gameState.activePlayerIndices = gameConfigs[2];
+            
+            // Filtrar jugadores humanos para que solo queden los que están en el nuevo modo
+            gameState.humanPlayers = gameState.humanPlayers.filter(p => gameConfigs[2].includes(p));
+            if (gameState.humanPlayers.length === 0) {
+                gameState.humanPlayers = [0]; // Por defecto, el jugador 1 es humano
+            }
+            
+            debug(`Modo 2 jugadores: índices activos = ${gameState.activePlayerIndices.join(',')}`);
+            debug(`Jugadores humanos = ${gameState.humanPlayers.join(',')}`);
+            
+            generatePlayerSelector();
+        });
+        
+        document.getElementById('mode-4').addEventListener('click', function() {
+            debug("Cambiando a modo 4 jugadores");
+            document.getElementById('mode-2').classList.remove('selected');
+            this.classList.add('selected');
+            gameState.gameMode = 4;
+            gameState.activePlayerIndices = gameConfigs[4];
+            
+            // Asegurarse de que haya al menos un jugador humano seleccionado
+            if (gameState.humanPlayers.length === 0) {
+                gameState.humanPlayers = [0]; // Por defecto, el jugador 1 es humano
+            }
+            
+            debug(`Modo 4 jugadores: índices activos = ${gameState.activePlayerIndices.join(',')}`);
+            debug(`Jugadores humanos = ${gameState.humanPlayers.join(',')}`);
+            
+            generatePlayerSelector();
+        });
+        
+        // Evento para comenzar el juego
+        document.getElementById('start-game').addEventListener('click', function() {
+            // Validar que al menos un jugador es humano
+            if (gameState.humanPlayers.length === 0) {
+                alert('Debes seleccionar al menos un jugador humano.');
+                return;
+            }
+            startGame();
+        });
+        
+        // Eventos para controles del juego
+        document.getElementById('roll-dice').addEventListener('click', rollDice);
+        document.getElementById('move-piece').addEventListener('click', () => {
+            // Limpiar cualquier selección previa, incluyendo selección de casa
+            clearHighlights();
+            gameState.selectedPiece = null;
+            gameState.houseSelected = false;
+            gameState.selectionMode = true;
+            
+            // Mostrar mensaje de ayuda
+            logMessage("Selecciona una de tus fichas para mover.");
+            
+            // Destacar fichas movibles
+            highlightMovablePieces();
+        });
+        
+        document.getElementById('skip-turn').addEventListener('click', () => {
+            if (!gameState.diceResult) return;
+            
+            // Limpiar estado de selección
+            clearHighlights();
+            gameState.selectionMode = false;
+            gameState.selectedPiece = null;
+            
+            const currentPlayerIdx = gameState.activePlayerIndices[gameState.currentPlayer];
+            logMessage(`${gameState.players[currentPlayerIdx].name} ha pasado su turno.`);
+            nextTurn();
+        });
+        
+        // Inicializar el panel de configuración
+        generatePlayerSelector();
+
+// Función correcta que restringe solo para el jugador específico
+function isLineInSameDirection(line1, line2) {
+    if (!line1 || !line2) return false;
+    
+    // Extraer información de las líneas
+    const getLineInfo = (line) => {
+        const color = line.includes("Rojo") ? "Rojo" : 
+                     line.includes("Amarillo") ? "Amarillo" : 
+                     line.includes("Verde") ? "Verde" : 
+                     line.includes("Azul") ? "Azul" : "";
+                     
+        const type = line.includes("Humedo") ? "Humedo" : "Seco";
+        
+        return { color, type };
+    };
+    
+    const line1Info = getLineInfo(line1);
+    const line2Info = getLineInfo(line2);
+    
+    // Si son del mismo color y mismo tipo (ambas húmedas o ambas secas)
+    // entonces son líneas en la misma dirección (una es posterior a la otra)
+    if (line1Info.color === line2Info.color && line1Info.type === line2Info.type) {
+        debug(`Las líneas ${line1} y ${line2} son del mismo color y misma orientación - Dirección prohibida`);
+        return true; // Movimiento prohibido
+    }
+    
+    // Obtener el jugador actual
+    const currentPlayerIdx = gameState.activePlayerIndices[gameState.currentPlayer];
+    
+    // Verificar las prohibiciones específicas para cada jugador
+    
+    // Jugador 0 (Verde) - No puede mover de Amarillo_Seco a Verde_Humedo
+    if (currentPlayerIdx === 0 && 
+        line1Info.color === "Amarillo" && line1Info.type === "Seco" && 
+        line2Info.color === "Verde" && line2Info.type === "Humedo") {
+        debug(`PROHIBIDO (Jugador Verde): No puede mover de Amarillo_Seco a Verde_Humedo`);
+        return true; // Movimiento prohibido
+    }
+    
+    // Jugador 1 (Azul) - No puede mover de Verde_Seco a Azul_Humedo
+    if (currentPlayerIdx === 1 && 
+        line1Info.color === "Verde" && line1Info.type === "Seco" && 
+        line2Info.color === "Azul" && line2Info.type === "Humedo") {
+        debug(`PROHIBIDO (Jugador Azul): No puede mover de Verde_Seco a Azul_Humedo`);
+        return true; // Movimiento prohibido
+    }
+    
+    // Jugador 2 (Rosa) - No puede mover de Azul_Seco a Rojo_Humedo
+    if (currentPlayerIdx === 2 && 
+        line1Info.color === "Azul" && line1Info.type === "Seco" && 
+        line2Info.color === "Rojo" && line2Info.type === "Humedo") {
+        debug(`PROHIBIDO (Jugador Rosa): No puede mover de Azul_Seco a Rojo_Humedo`);
+        return true; // Movimiento prohibido
+    }
+    
+    // Jugador 3 (Amarillo) - No puede mover de Rojo_Seco a Amarillo_Humedo
+    if (currentPlayerIdx === 3 && 
+        line1Info.color === "Rojo" && line1Info.type === "Seco" && 
+        line2Info.color === "Amarillo" && line2Info.type === "Humedo") {
+        debug(`PROHIBIDO (Jugador Amarillo): No puede mover de Rojo_Seco a Amarillo_Humedo`);
+        return true; // Movimiento prohibido
+    }
+    
+    // No son del mismo color y no es una transición prohibida para el jugador actual
+    return false;
+}
+    </script>
+</body>
+</html>localStorage  
