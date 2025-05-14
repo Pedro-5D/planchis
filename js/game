@@ -1,0 +1,772 @@
+/**
+ * game.js - Lógica principal del juego Planchis Online
+ */
+
+// Estado del juego
+const gameState = {
+    currentPlayer: 0,
+    players: [],
+    pieces: [],
+    board: [],
+    diceResult: null,
+    selectedPiece: null,
+    possibleMoves: [],
+    selectionMode: false,
+    gameOver: false,
+    gameMode: 2, // Por defecto 2 jugadores
+    humanPlayers: [0], // Por defecto, solo el jugador 1 (Verde) es humano
+    activePlayerIndices: [], // Los jugadores activos en la partida
+    houseSelected: false // Indica si se ha seleccionado una casa para sacar ficha
+};
+
+// Al cargar la página, asegurarse de que el modo predeterminado esté configurado
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar en modo 2 jugadores por defecto
+    debug("Inicializando juego en modo 2 jugadores por defecto");
+    gameState.gameMode = 2;
+    gameState.humanPlayers = [0]; // Jugador 1 (Verde) es humano por defecto
+    gameState.activePlayerIndices = gameConfigs[2];
+    
+    // Generar selector de jugadores inicial
+    generatePlayerSelector();
+
+    // Eventos para controles del juego
+    document.getElementById('roll-dice').addEventListener('click', rollDice);
+    document.getElementById('move-piece').addEventListener('click', activateSelectionMode);
+    document.getElementById('skip-turn').addEventListener('click', skipTurn);
+    
+    // Eventos de configuración
+    setupConfigEvents();
+});
+
+// Tirar el dado con símbolos astrológicos
+function rollDice() {
+    debug("Tirando dado...");
+    
+    // Limpiar cualquier selección previa
+    if (gameState.selectedPiece) {
+        const pieceElement = document.getElementById(gameState.selectedPiece.id);
+        if (pieceElement) {
+            pieceElement.classList.remove('selected-piece');
+        }
+    }
+    gameState.selectedPiece = null;
+    gameState.selectionMode = false;
+    
+    const diceResult = document.getElementById('dice-result');
+    const elementInfo = document.getElementById('element-info');
+    
+    // Elegir resultado aleatorio de las 12 combinaciones posibles
+    const randomIndex = Math.floor(Math.random() * dadoCombinations.length);
+    const result = dadoCombinations[randomIndex];
+    
+    // Obtener el símbolo Unicode para el planeta
+    const symbolObj = symbols.find(s => s.name === result.planet);
+    const symbolChar = symbolObj ? symbolObj.symbol : '?';
+    
+    // Mostrar el resultado en el dado
+    diceResult.textContent = symbolChar;
+    diceResult.className = 'dice-result';
+    diceResult.classList.add(`circle-${result.color}`);
+    
+    // Mostrar información del elemento
+    elementInfo.textContent = `${result.planet} - ${result.element}`;
+    
+    // MAPEO CORRECTO DEL ELEMENTO AL COLOR DEL TABLERO
+    const boardColor = mapElementToColor(result.element);
+    
+    // Actualizar estado del juego
+    gameState.diceResult = {
+        planet: result.planet,
+        element: result.element,
+        color: result.color,
+        boardColor: boardColor
+    };
+    
+    // Limpiar resaltado previo
+    clearHighlights();
+    
+    // Encontrar movimientos posibles con las nuevas reglas
+    findPossibleMoves();
+    
+    // Actualizar controles basado en si hay movimientos posibles
+    document.getElementById('roll-dice').disabled = true;
+    
+    if (gameState.possibleMoves.length === 0) {
+        document.getElementById('move-piece').disabled = true;
+        document.getElementById('skip-turn').disabled = false; // Puede pasar turno si no hay movimientos
+        
+        logMessage(`${gameState.players[gameState.activePlayerIndices[gameState.currentPlayer]].name} ha tirado el dado: ${result.planet} - ${result.element} (${boardColor}).`);
+        logMessage("No hay movimientos posibles. Puedes pasar turno.");
+    } else {
+        document.getElementById('move-piece').disabled = false;
+        document.getElementById('skip-turn').disabled = true; // No puede pasar turno si hay movimientos
+        
+        // Resaltar los movimientos posibles
+        highlightPossibleMoves();
+        
+        // Log para el jugador mostrando el color específico
+        logMessage(`${gameState.players[gameState.activePlayerIndices[gameState.currentPlayer]].name} ha tirado el dado: ${result.planet} - ${result.element} (${boardColor}).`);
+        
+        const fromHouseMoves = gameState.possibleMoves.filter(m => m.type === 'fromHouse').length;
+        const normalMoves = gameState.possibleMoves.filter(m => m.type === 'normal').length;
+        
+        if (fromHouseMoves > 0 && normalMoves === 0) {
+            logMessage(`Hay ${fromHouseMoves} posibilidades para sacar fichas de casa.`);
+        } else if (fromHouseMoves === 0 && normalMoves > 0) {
+            logMessage(`Hay ${normalMoves} movimientos posibles. Haz clic en "Mover Ficha" para seleccionar una.`);
+        } else {
+            logMessage(`Hay ${gameState.possibleMoves.length} movimientos posibles (${fromHouseMoves} desde casa, ${normalMoves} en tablero).`);
+        }
+    }
+    
+    // Si es IA, hacer su movimiento automáticamente
+    const currentPlayerIdx = gameState.activePlayerIndices[gameState.currentPlayer];
+    if (gameState.players[currentPlayerIdx].ai && !gameState.gameOver) {
+        setTimeout(playAITurn, 1000);
+    }
+}
+
+// Activar modo de selección de fichas
+function activateSelectionMode() {
+    // Limpiar cualquier selección previa, incluyendo selección de casa
+    clearHighlights();
+    gameState.selectedPiece = null;
+    gameState.houseSelected = false;
+    gameState.selectionMode = true;
+    
+    // Mostrar mensaje de ayuda
+    logMessage("Selecciona una de tus fichas para mover.");
+    
+    // Destacar fichas movibles
+    highlightMovablePieces();
+}
+
+// Pasar turno
+function skipTurn() {
+    if (!gameState.diceResult) return;
+    
+    // Limpiar estado de selección
+    clearHighlights();
+    gameState.selectionMode = false;
+    gameState.selectedPiece = null;
+    
+    const currentPlayerIdx = gameState.activePlayerIndices[gameState.currentPlayer];
+    logMessage(`${gameState.players[currentPlayerIdx].name} ha pasado su turno.`);
+    nextTurn();
+}
+
+// Encontrar movimientos posibles según la tirada del dado
+function findPossibleMoves() {
+    gameState.possibleMoves = [];
+    
+    if (!gameState.diceResult) return;
+    
+    const currentPlayerIdx = gameState.activePlayerIndices[gameState.currentPlayer];
+    const currentPlayer = gameState.players[currentPlayerIdx];
+    const { planet, boardColor } = gameState.diceResult;
+    
+    debug(`Buscando movimientos para planeta: ${planet}, color: ${boardColor}`);
+    
+    // 1. Verificar si hay fichas en posición para entrar a la cruz
+    // SOLO cuando la tirada coincide con el planeta específico (ignorando el color)
+    const basePlanet = planet.split('_')[0];
+    
+    // Planetas válidos para la cruz
+    const validPlanets = ["Sol", "Luna", "Mercurio", "Venus", "Marte", "Júpiter"];
+    
+    // Antes de buscar, mostrar información de depuración sobre todas las fichas del jugador actual
+    const playerPieces = gameState.pieces.filter(p => 
+        p.player === currentPlayerIdx && !p.inCross);
+    debug(`El jugador ${currentPlayerIdx} tiene ${playerPieces.length} fichas en el tablero`);
+    
+    for (const piece of playerPieces) {
+        const ready = isPositionReadyForCross(piece.row, piece.col, currentPlayerIdx);
+        debug(`Ficha en (${piece.row}, ${piece.col}): ¿Lista para cruz? ${ready}`);
+    }
+    
+    if (validPlanets.includes(basePlanet)) {
+        debug(`Planeta base válido para la cruz: ${basePlanet}`);
+        
+        // Encontrar la posición esperada en la cruz para este planeta
+        const expectedCrossPosition = findCrossPlanetPosition(basePlanet, currentPlayerIdx, playerCrossZones);
+        if (expectedCrossPosition) {
+            debug(`Posición esperada en cruz para ${basePlanet}: (${expectedCrossPosition.row}, ${expectedCrossPosition.col})`);
+        } else {
+            debug(`No se encontró posición en cruz para ${basePlanet}`);
+        }
+        
+        // Buscar fichas que estén en posición para entrar a la cruz
+        const piecesReadyForCross = playerPieces.filter(p => 
+            isPositionReadyForCross(p.row, p.col, currentPlayerIdx)
+        );
+        
+        if (piecesReadyForCross.length > 0) {
+            debug(`Encontradas ${piecesReadyForCross.length} fichas en posición para entrar a la cruz`);
+            
+            // Para cada ficha lista, verificar si puede entrar a la cruz con este planeta
+            for (const piece of piecesReadyForCross) {
+                const crossPosition = findCrossPlanetPosition(basePlanet, currentPlayerIdx, playerCrossZones);
+                
+                if (crossPosition) {
+                    debug(`Ficha en (${piece.row}, ${piece.col}) puede entrar a la cruz en (${crossPosition.row}, ${crossPosition.col})`);
+                    
+                    // Verificar que no hay otra ficha propia en esa posición
+                    const isOccupiedBySamePlayer = gameState.pieces.some(p => 
+                        p.player === currentPlayerIdx && 
+                        p.row === crossPosition.row && 
+                        p.col === crossPosition.col);
+                    
+                    if (!isOccupiedBySamePlayer) {
+                        gameState.possibleMoves.push({
+                            type: 'normal',
+                            pieceId: piece.id,
+                            currentRow: piece.row,
+                            currentCol: piece.col,
+                            targetRow: crossPosition.row,
+                            targetCol: crossPosition.col,
+                            isCrossMove: true,
+                            crossPlanet: basePlanet // Añadir el planeta para verificación posterior
+                        });
+                        debug(`Añadido movimiento a cruz para planeta ${basePlanet} en (${crossPosition.row}, ${crossPosition.col})`);
+                    } else {
+                        debug(`Posición en cruz (${crossPosition.row}, ${crossPosition.col}) ya ocupada por ficha del mismo jugador`);
+                    }
+                }
+            }
+        } else {
+            debug(`No se encontraron fichas en posición para entrar a la cruz`);
+        }
+    } else {
+        debug(`El planeta ${basePlanet} no está en la lista de planetas válidos para la cruz`);
+    }
+    
+    // 2. Buscamos casillas que coincidan exactamente con el planeta y color de la tirada
+    const matchingCells = [];
+    for (let i = 0; i < gameState.board.length; i++) {
+        const cell = gameState.board[i];
+        
+        // No considerar casillas en la cruz para movimientos normales
+        if (cell.isInCross) {
+            continue;
+        }
+        
+        // CORRECCIÓN: Mejorar la comparación de colores para incluir correctamente el verde
+        const colorMatch = 
+            cell.symbolColor === boardColor || 
+            (boardColor === 'red' && cell.symbolColor === 'pink') ||
+            (boardColor === 'green' && cell.symbolColor === 'green') ||
+            (boardColor === 'yellow' && cell.symbolColor === 'yellow') ||
+            (boardColor === 'blue' && cell.symbolColor === 'blue');
+        if (cell.hasSymbol && cell.planet === planet && colorMatch) {
+            // Solo considerar casillas que están en líneas definidas
+            if (cell.lineName) {
+                matchingCells.push(cell);
+                debug(`Celda coincidente encontrada en (${cell.row}, ${cell.col}) - ${cell.lineName}`);
+            }
+        }
+    }
+    
+    debug(`Encontradas ${matchingCells.length} celdas coincidentes para movimientos normales`);
+    
+    // 3. Comprobar si puede sacar una ficha de casa
+    if (currentPlayer.piecesInHouse > 0) {
+        // Solo permitir salir a líneas iniciales específicas para el jugador
+        const startLines = playerStartLines[currentPlayerIdx];
+        
+        for (const cell of matchingCells) {
+            if (startLines.includes(cell.lineName)) {
+                // Verificar que no hay ficha del mismo jugador en la posición
+                const isOccupiedBySamePlayer = gameState.pieces.some(p => 
+                    p.player === currentPlayerIdx && 
+                    p.row === cell.row && 
+                    p.col === cell.col);
+                
+                if (!isOccupiedBySamePlayer) {
+                    gameState.possibleMoves.push({
+                        type: 'fromHouse',
+                        targetRow: cell.row,
+                        targetCol: cell.col,
+                        targetLine: cell.lineName
+                    });
+                    
+                    debug(`Movimiento posible desde casa a (${cell.row}, ${cell.col})`);
+                }
+            }
+        }
+    }
+    
+    // 4. Comprobar movimientos normales para fichas en el tablero
+    for (const piece of gameState.pieces) {
+        // Solo considerar fichas del jugador actual que no estén en la cruz
+        if (piece.player === currentPlayerIdx && !piece.inCross) {
+            
+            const currentCell = gameState.board.find(c => c.row === piece.row && c.col === piece.col);
+            
+            debug(`Evaluando posibles movimientos para ficha en (${piece.row}, ${piece.col})`);
+            
+            // Solo considerar fichas que están en líneas definidas
+            if (currentCell && currentCell.lineName) {
+                for (const targetCell of matchingCells) {
+                    // CORRECCIÓN CLAVE: Verificar líneas conectadas y que no sea línea posterior
+                    if (areLinesConnected(currentCell.lineName, targetCell.lineName, adjacentLines, gameState)) {
+                        // Comprobar que no hay ficha del mismo jugador en la posición
+                        const isOccupiedBySamePlayer = gameState.pieces.some(p => 
+                            p.player === currentPlayerIdx && 
+                            p.row === targetCell.row && 
+                            p.col === targetCell.col);
+                        
+                        if (!isOccupiedBySamePlayer) {
+                            gameState.possibleMoves.push({
+                                type: 'normal',
+                                pieceId: piece.id,
+                                currentRow: piece.row,
+                                currentCol: piece.col,
+                                targetRow: targetCell.row,
+                                targetCol: targetCell.col,
+                                currentLine: currentCell.lineName,
+                                targetLine: targetCell.lineName,
+                                isCrossMove: false
+                            });
+                            
+                            debug(`Movimiento posible de (${piece.row}, ${piece.col}) a (${targetCell.row}, ${targetCell.col}) - Normal`);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Filtro: Eliminar cualquier movimiento a la cruz que no esté marcado explícitamente como crossMove
+    const filteredMoves = [];
+    for (const move of gameState.possibleMoves) {
+        const targetCell = gameState.board.find(c => c.row === move.targetRow && c.col === move.targetCol);
+        
+        // Si el destino está en la cruz pero no es un movimiento de cruz válido, excluirlo
+        if (targetCell && targetCell.isInCross && (!move.isCrossMove)) {
+            debug(`Filtrando movimiento no válido a cruz: (${move.targetRow}, ${move.targetCol})`);
+            continue;
+        }
+        
+        // Añadir movimientos válidos
+        filteredMoves.push(move);
+    }
+    
+    // Actualizar los movimientos posibles con la lista filtrada
+    gameState.possibleMoves = filteredMoves;
+    
+    debug(`Total movimientos posibles después de filtrado: ${gameState.possibleMoves.length}`);
+}
+
+// Manejar clic en una celda
+function handleCellClick(row, col) {
+    // Si se ha seleccionado una casa y se hace clic en un destino válido
+    if (gameState.houseSelected) {
+        const moveFromHouse = gameState.possibleMoves.find(m => 
+            m.type === 'fromHouse' && 
+            m.targetRow === row && 
+            m.targetCol === col
+        );
+        
+        if (moveFromHouse) {
+            // Colocar nueva ficha
+            placeNewPiece(row, col);
+            
+            // Actualizar controles
+            document.getElementById('roll-dice').disabled = false;
+            document.getElementById('move-piece').disabled = true;
+            document.getElementById('skip-turn').disabled = true;
+            
+            // Limpiar selección de casa
+            const symbolDiv = document.querySelector('.selected-house');
+            if (symbolDiv) {
+                symbolDiv.classList.remove('selected-house');
+            }
+            
+            // Limpiar estado
+            gameState.houseSelected = false;
+            clearHighlights();
+            gameState.selectionMode = false; // Asegurarse de que se desactiva el modo de selección
+            
+            // Verificar si ha ganado
+            checkForWin();
+            
+            // Pasar al siguiente jugador si no ha ganado
+            if (!gameState.gameOver) {
+                nextTurn(); // Asegurarse de que se llama a nextTurn()
+            }
+            return;
+        } else {
+            // Si se hace clic en algún lugar que no es un destino válido,
+            // cancelar la selección de casa
+            clearHighlights();
+            gameState.houseSelected = false;
+            logMessage("Selección de casa cancelada. Selecciona otra acción.");
+            return;
+        }
+    }
+            
+    // Solo permitir clics si es el turno del jugador humano
+    const currentPlayerIdx = gameState.activePlayerIndices[gameState.currentPlayer];
+    const currentPlayer = gameState.players[currentPlayerIdx];
+    
+    if (currentPlayer.ai) {
+        return;
+    }
+    
+    debug(`Clic en celda (${row}, ${col}), modo selección: ${gameState.selectionMode}, ficha seleccionada: ${gameState.selectedPiece !== null}`);
+    
+    // Si no hay resultado del dado, no hacer nada
+    if (!gameState.diceResult) {
+        return;
+    }
+    
+    // Buscar información de la celda clicada
+    const cell = gameState.board.find(c => c.row === row && c.col === col);
+    
+    // Verificar si la casilla clicada es parte de la cruz
+    if (cell && cell.isInCross && gameState.selectedPiece) {
+        // Verificar si la ficha seleccionada está en posición para entrar a la cruz
+        const isReadyForCross = isPositionReadyForCross(
+            gameState.selectedPiece.row, 
+            gameState.selectedPiece.col, 
+            currentPlayerIdx
+        );
+        
+        if (!isReadyForCross) {
+            // Si la ficha no está en posición final, mostrar mensaje de error
+            logMessage("No puedes mover a la cruz directamente. Primero debes posicionar tu ficha en la fila/columna adyacente a tu zona de cruz.");
+            return;
+        }
+        
+        // Verificar si el planeta del dado coincide con la posición en la cruz
+        const basePlanet = gameState.diceResult.planet.split('_')[0];
+        const expectedPosition = findCrossPlanetPosition(basePlanet, currentPlayerIdx, playerCrossZones);
+        
+        if (!expectedPosition || expectedPosition.row !== row || expectedPosition.col !== col) {
+            debug(`Movimiento a cruz inválido: planeta ${basePlanet} no coincide con posición (${row}, ${col})`);
+            if (expectedPosition) {
+                logMessage(`Para el planeta ${basePlanet}, la posición correcta en la cruz es (${expectedPosition.row}, ${expectedPosition.col}).`);
+            } else {
+                logMessage(`El planeta ${basePlanet} no tiene una posición válida en la cruz.`);
+            }
+            return;
+        }
+        
+        // Verificar si existe un movimiento explícito a la cruz para esta ficha y posición
+        const validCrossMove = gameState.possibleMoves.some(m => 
+            m.pieceId === gameState.selectedPiece.id && 
+            m.targetRow === row && 
+            m.targetCol === col && 
+            m.isCrossMove === true);
+        
+        if (!validCrossMove) {
+            debug(`No se encontró movimiento explícito a cruz para ficha ${gameState.selectedPiece.id} a (${row}, ${col})`);
+            logMessage("Movimiento a la cruz no válido según las reglas del juego.");
+            return;
+        }
+        
+        debug(`Verificación PASADA: Movimiento válido a cruz con ${basePlanet}`);
+    }
+    
+    // Buscar si hay una ficha en la posición clicada
+    const clickedPiece = gameState.pieces.find(p => 
+        p.player === currentPlayerIdx && 
+        p.row === row && 
+        p.col === col && 
+        !p.inCross
+    );
+    
+    // NUEVA FUNCIONALIDAD: Si hay una ficha seleccionada y se hace clic en otra ficha propia, cambiar la selección
+    if (gameState.selectedPiece && clickedPiece && gameState.selectedPiece.id !== clickedPiece.id) {
+        // Quitar resaltado de la ficha anterior
+        const oldPieceElement = document.getElementById(gameState.selectedPiece.id);
+        if (oldPieceElement) {
+            oldPieceElement.classList.remove('selected-piece');
+        }
+        
+        // Seleccionar la nueva ficha
+        gameState.selectedPiece = clickedPiece;
+        
+        // Verificar si la nueva ficha tiene movimientos válidos
+        const hasValidMoves = gameState.possibleMoves.some(m => 
+            m.type === 'normal' && 
+            m.pieceId === clickedPiece.id
+        );
+        
+        if (hasValidMoves) {
+            // Mostrar movimientos posibles para la nueva ficha
+            highlightPossibleMovesForPiece(clickedPiece);
+            logMessage(`Ficha seleccionada en (${row}, ${col}). Haz clic en una casilla resaltada para moverla.`);
+            
+            // Añadir clase visual a la nueva ficha seleccionada
+            const newPieceElement = document.getElementById(clickedPiece.id);
+            if (newPieceElement) {
+                newPieceElement.classList.add('selected-piece');
+            }
+        } else {
+            logMessage(`Esta ficha no tiene movimientos válidos. Selecciona otra.`);
+            gameState.selectedPiece = null;
+            clearHighlights();
+            highlightMovablePieces();
+        }
+        return;
+    }
+    
+    // NUEVA FUNCIONALIDAD: Si la ficha clicada es la misma que ya está seleccionada, deseleccionarla
+    if (gameState.selectedPiece && clickedPiece && gameState.selectedPiece.id === clickedPiece.id) {
+        // Quitar resaltado y deseleccionar
+        const pieceElement = document.getElementById(clickedPiece.id);
+        if (pieceElement) {
+            pieceElement.classList.remove('selected-piece');
+        }
+        
+        gameState.selectedPiece = null;
+        clearHighlights();
+        
+        // Mostrar todas las fichas movibles
+        gameState.selectionMode = true;
+        highlightMovablePieces();
+        logMessage(`Ficha deseleccionada. Selecciona una ficha para mover.`);
+        return;
+    }
+    
+    // Si estamos en modo selección o se ha clicado en una ficha
+    if (gameState.selectionMode || clickedPiece) {
+        // Si se ha clicado en una ficha propia
+        if (clickedPiece) {
+            // Seleccionar esta ficha y mostrar sus posibles movimientos
+            gameState.selectedPiece = clickedPiece;
+            gameState.selectionMode = false; // Salir del modo selección
+            
+            // Verificar si la ficha tiene movimientos válidos
+            const hasValidMoves = gameState.possibleMoves.some(m => 
+                m.type === 'normal' && 
+                m.pieceId === clickedPiece.id
+            );
+            
+            if (hasValidMoves) {
+                highlightPossibleMovesForPiece(clickedPiece);
+                logMessage(`Ficha seleccionada en (${row}, ${col}). Haz clic en una casilla resaltada para moverla.`);
+                debug(`Ficha ${clickedPiece.id} seleccionada, tiene ${gameState.possibleMoves.filter(m => m.pieceId === clickedPiece.id).length} movimientos posibles`);
+                
+                // Añadir clase visual a la ficha seleccionada
+                const pieceElement = document.getElementById(clickedPiece.id);
+                if (pieceElement) {
+                    pieceElement.classList.add('selected-piece');
+                }
+                
+                return;
+            } else {
+                logMessage(`Esta ficha no tiene movimientos válidos.`);
+                gameState.selectedPiece = null;
+                clearHighlights();
+                highlightMovablePieces();
+                gameState.selectionMode = true;
+                return;
+            }
+        } else {
+            // No se ha seleccionado una ficha válida, mantener el modo selección
+            logMessage("Selecciona una de tus fichas para mover.");
+            return;
+        }
+    }
+    
+    // Si hay una ficha seleccionada, comprobar si el destino es válido
+    if (gameState.selectedPiece) {
+        const validMove = gameState.possibleMoves.find(m => 
+            m.pieceId === gameState.selectedPiece.id && 
+            m.targetRow === row && 
+            m.targetCol === col
+        );
+        
+        if (validMove) {
+            // Quitar clase visual de la ficha seleccionada
+            const pieceElement = document.getElementById(gameState.selectedPiece.id);
+            if (pieceElement) {
+                pieceElement.classList.remove('selected-piece');
+            }
+            
+            // Realizar el movimiento
+            movePiece(gameState.selectedPiece.id, row, col);
+            
+            // Actualizar controles
+            document.getElementById('roll-dice').disabled = false;
+            document.getElementById('move-piece').disabled = true;
+            document.getElementById('skip-turn').disabled = true;
+            
+            // Limpiar resaltados y selección
+            clearHighlights();
+            gameState.selectedPiece = null;
+            
+            // Verificar si ha ganado
+            checkForWin();
+            
+            // Pasar al siguiente jugador si no ha ganado
+            if (!gameState.gameOver) {
+                nextTurn();
+            }
+            return;
+        } else {
+            // Clic en una celda no válida con una ficha seleccionada
+            // Cancelar la selección y mostrar todas las fichas movibles
+            logMessage("Destino no válido. Selecciona otra ficha o un destino válido.");
+            
+            // Quitar clase visual de la ficha seleccionada
+            const pieceElement = document.getElementById(gameState.selectedPiece.id);
+            if (pieceElement) {
+                pieceElement.classList.remove('selected-piece');
+            }
+            
+            gameState.selectedPiece = null;
+            clearHighlights();
+            gameState.selectionMode = true;
+            highlightMovablePieces();
+            return;
+        }
+    }
+    
+    // Si no se está en modo selección ni hay ficha seleccionada, comprobar si es un destino válido para salir de casa
+    const moveFromHouse = gameState.possibleMoves.find(m => 
+        m.type === 'fromHouse' && 
+        m.targetRow === row && 
+        m.targetCol === col
+    );
+    
+    if (moveFromHouse) {
+        placeNewPiece(row, col);
+        
+        // Actualizar controles
+        document.getElementById('roll-dice').disabled = false;
+        document.getElementById('move-piece').disabled = true;
+        document.getElementById('skip-turn').disabled = true;
+        
+        // Limpiar resaltados
+        clearHighlights();
+        gameState.selectedPiece = null;
+        
+        // Verificar si ha ganado
+        checkForWin();
+        
+        // Pasar al siguiente jugador si no ha ganado
+        if (!gameState.gameOver) {
+            nextTurn();
+        }
+        return;
+    }
+    
+    // Si llegamos aquí, el movimiento no es válido
+    logMessage("Movimiento no válido. Selecciona una ficha o una casilla resaltada.");
+}
+
+// Iniciar el juego una vez configurado
+function startGame() {
+    // Ocultar el diálogo de configuración
+    document.getElementById('config-dialog').style.display = 'none';
+    
+    // Inicializar el estado del juego
+    initializeGameState();
+    
+    // Inicializar el tablero
+    initializeBoard();
+    
+    // Inicializar la interfaz de jugadores
+    initializePlayerInfo();
+    
+    // Mostrar mensaje de inicio
+    const messageLog = document.getElementById('message-log');
+    messageLog.innerHTML = '';
+    logMessage(`¡El juego ha comenzado! Modo: ${gameState.gameMode} jugadores.`);
+    logMessage(`Turno de ${gameState.players[gameState.activePlayerIndices[0]].name}.`);
+    
+    // Mostrar reglas
+    logMessage('-----REGLAS DEL JUEGO-----');
+    logMessage('1. Tira el dado para obtener un planeta y un elemento (color).');
+    logMessage('2. Solo puedes mover a casillas con ese planeta y ese color específico.');
+    logMessage('3. Los movimientos pueden ser en la misma línea o líneas adyacentes según las reglas.');
+    logMessage('4. Puedes seleccionar la ficha que quieres mover haciendo clic en ella.');
+    logMessage('5. Si una ficha está en la Línea Húmeda de su casa, no puede moverse a la Línea Seca de la casa anterior.');
+    logMessage('6. Al salir de casa, solo puedes ir a las líneas de tu propio color.');
+    logMessage('7. Para llegar a la cruz, primero debes posicionar tu ficha en la fila/columna adyacente a tu zona.');
+    logMessage('8. Desde esta posición, solo podrás mover a la cruz cuando el dado muestre el planeta específico que');
+    logMessage('   corresponde a cada posición de tu zona, SIN importar el color del planeta.');
+    logMessage('9. Las fichas en la cruz no pueden moverse ni ser comidas.');
+    
+    // Reglas específicas para modo 4 jugadores
+    if (gameState.gameMode === 4) {
+    logMessage('10. Cada jugador tiene 3 casillas seguras donde sus fichas no pueden ser comidas:');
+    logMessage('    - Verde: Sol verde, Mercurio verde y Marte azul');
+    logMessage('    - Azul: Luna azul, Venus verde y Júpiter azul');
+    logMessage('    - Rosa: Sol rosa, Mercurio amarillo y Marte rosa');
+    logMessage('    - Amarillo: Luna amarilla, Venus amarilla y Júpiter rosa');
+    logMessage('11. Si una ficha está en una casilla segura, ninguna otra ficha puede ocupar esa casilla.');
+    logMessage('12. En las dos últimas filas antes de la cruz, NO hay casillas seguras para ningún jugador.');
+    logMessage('13. Para ganar, lleva 6 fichas a tu zona de la cruz.');
+    logMessage('14. El orden de juego depende de los jugadores activos.');
+    } else {
+        logMessage('10. Para ganar, lleva 6 fichas a tu zona de la cruz.');
+        logMessage('11. El orden de juego depende de los jugadores activos.');
+    }
+    logMessage('------------------------');
+    
+    // Mostrar información de las líneas
+    showLineInfo();
+    
+    // Si el primer jugador es IA, hacer su movimiento
+    if (gameState.players[gameState.activePlayerIndices[0]].ai) {
+        setTimeout(() => {
+            document.getElementById('roll-dice').click();
+        }, 1000);
+    }
+}
+
+// Configurar eventos para los botones de configuración
+function setupConfigEvents() {
+    // Evento al cambiar el modo de juego
+    document.getElementById('mode-2').addEventListener('click', function() {
+        debug("Cambiando a modo 2 jugadores");
+        document.getElementById('mode-4').classList.remove('selected');
+        this.classList.add('selected');
+        gameState.gameMode = 2;
+        gameState.activePlayerIndices = gameConfigs[2];
+        
+        // Filtrar jugadores humanos para que solo queden los que están en el nuevo modo
+        gameState.humanPlayers = gameState.humanPlayers.filter(p => gameConfigs[2].includes(p));
+        if (gameState.humanPlayers.length === 0) {
+            gameState.humanPlayers = [0]; // Por defecto, el jugador 1 es humano
+        }
+        
+        debug(`Modo 2 jugadores: índices activos = ${gameState.activePlayerIndices.join(',')}`);
+        debug(`Jugadores humanos = ${gameState.humanPlayers.join(',')}`);
+        
+        generatePlayerSelector();
+    });
+    
+    document.getElementById('mode-4').addEventListener('click', function() {
+        debug("Cambiando a modo 4 jugadores");
+        document.getElementById('mode-2').classList.remove('selected');
+        this.classList.add('selected');
+        gameState.gameMode = 4;
+        gameState.activePlayerIndices = gameConfigs[4];
+        
+        // Asegurarse de que haya al menos un jugador humano seleccionado
+        if (gameState.humanPlayers.length === 0) {
+            gameState.humanPlayers = [0]; // Por defecto, el jugador 1 es humano
+        }
+        
+        debug(`Modo 4 jugadores: índices activos = ${gameState.activePlayerIndices.join(',')}`);
+        debug(`Jugadores humanos = ${gameState.humanPlayers.join(',')}`);
+        
+        generatePlayerSelector();
+    });
+    
+    // Evento para comenzar el juego
+    document.getElementById('start-game').addEventListener('click', function() {
+        // Validar que al menos un jugador es humano
+        if (gameState.humanPlayers.length === 0) {
+            alert('Debes seleccionar al menos un jugador humano.');
+            return;
+        }
+        startGame();
+    });
+}
